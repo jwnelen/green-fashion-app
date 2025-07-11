@@ -2,10 +2,10 @@ from pathlib import Path
 
 import streamlit as st
 import torch
-from config import CLOTHING_CATEGORIES
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
+from clothing.config import CLOTHING_CATEGORIES
 from color_extracting.color_palette_extractor import display_palette
 
 st.set_page_config(page_title="Fashion Classifier", layout="wide")
