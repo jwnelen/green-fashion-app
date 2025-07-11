@@ -36,7 +36,7 @@ def extract_color_palette(_image_path, n_colors=5, resize_width=150):
 
 def plot_palette(palette, selected_indices=None):
     if selected_indices is None:
-        selected_indices = {0}
+        selected_indices = {}
 
     fig, ax = plt.subplots()
     palette_height = 5
@@ -46,7 +46,14 @@ def plot_palette(palette, selected_indices=None):
     x_start = 0
     sections = []
 
-    for i, (color, percentage) in enumerate(palette):
+    for i, r in enumerate(palette):
+        color = r["color"]
+        if isinstance(color, str):
+            color = [
+                int(c) for c in color.replace("rgb(", "").replace(")", "").split(",")
+            ]
+        color = np.array(color, dtype=np.uint8)
+        percentage = r["percentage"]
         if i == len(palette) - 1:
             section_width = palette_width - x_start
         else:
@@ -73,13 +80,7 @@ def plot_palette(palette, selected_indices=None):
     ax.set_title("Color Palette")
     ax.axis("off")
 
-    # for i, (color, percentage) in enumerate(palette):
-    #     selected_indicator = "✓" if i in selected_indices else " "
-    #     print(
-    #         f"{selected_indicator} Color {i+1}: RGB{tuple(color)} - {percentage:.1f}%"
-    #     )
-
-    st.pyplot(fig, clear_figure=True)
+    return fig
 
 
 def display_palette(single_image_path, n_colors=5):
@@ -105,4 +106,5 @@ def display_palette(single_image_path, n_colors=5):
             else:
                 selected_colors.discard(i)
 
-    plot_palette(palette, selected_colors)
+    fig = plot_palette(palette, selected_colors)
+    st.pyplot(fig, clear_figure=True)

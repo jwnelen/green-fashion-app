@@ -17,3 +17,12 @@ mapper = {
     "skirt": 2,
     "t-shirt": 1,
 }
+
+section_to_name = {
+    0: "Head",
+    1: "Upper Body",
+    2: "Lower Body",
+    3: "Full Body",
+    4: "Shoes",
+    # 5: "Accessories",
+}
