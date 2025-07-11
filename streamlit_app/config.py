@@ -9,5 +9,4 @@ CLOTHING_CATEGORIES = [
     "shorts",
     "skirt",
     "t-shirt",
-    "sweater",
 ]
