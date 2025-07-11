@@ -115,17 +115,15 @@ def classify_fashion_image(image, categories):
 
 
 def main():
-    st.title("🛍️ Fashion Classification App")
+    st.sidebar.header("Settings", width="stretch")
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        selected_fashion_category = st.selectbox(
-            "Select Fashion Category",
-            options=CLOTHING_CATEGORIES,
-            help="Choose a category to classify fashion items",
-        )
-    with col2:
-        st.info(f"Categories to classify: {len(CLOTHING_CATEGORIES)}")
+    selected_fashion_category = st.sidebar.selectbox(
+        "Select Fashion Category",
+        options=CLOTHING_CATEGORIES,
+        help="Choose a category to classify fashion items",
+    )
+
+    st.sidebar.write(f"Categories to classify: {len(CLOTHING_CATEGORIES)}")
 
     image_paths = load_image_paths(selected_fashion_category)
 
@@ -135,18 +133,18 @@ def main():
         )
         return
 
+    st.subheader("Select Image")
+
+    selected_image_info = st.sidebar.selectbox(
+        "Choose an image",
+        options=image_paths,
+        format_func=lambda x: x["display_name"],
+        help="Select an image from the dataset",
+    )
+
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.subheader("Select Image")
-
-        selected_image_info = st.selectbox(
-            "Choose an image",
-            options=image_paths,
-            format_func=lambda x: x["display_name"],
-            help="Select an image from the dataset",
-        )
-
         if selected_image_info:
             try:
                 image = Image.open(selected_image_info["path"])
@@ -177,20 +175,15 @@ def main():
                     results = classify_fashion_image(image, categories)
 
                     if results:
-                        st.subheader("📊 Classification Results")
+                        st.subheader("Classification Results")
 
-                        for i, result in enumerate(results[:3]):
+                        for i, result in enumerate(results[:4]):
                             confidence_pct = result["confidence"] * 100
+                            percentage_str = f"{confidence_pct:.1f}%"
 
-                            if i == 0:
-                                st.success(f"**Best Match: {result['label']}**")
-
-                            st.metric(
-                                label=f"#{i + 1} {result['label']}",
-                                value=f"{confidence_pct:.1f}%",
+                            st.write(
+                                f"**{i + 1}. {result['label']} ({percentage_str})**",
                             )
-
-                            st.progress(result["confidence"])
 
                 except Exception as e:
                     st.error(f"Error during classification: {str(e)}")

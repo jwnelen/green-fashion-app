@@ -16,7 +16,6 @@ def extract_color_palette(_image_path, n_colors=5, resize_width=150):
     aspect_ratio = original_height / original_width
     resize_height = int(resize_width * aspect_ratio)
     image = image.resize((resize_width, resize_height), Image.Resampling.LANCZOS)
-    # display(image)
 
     pixels = np.array(image).reshape(-1, 3)
 
@@ -74,11 +73,11 @@ def plot_palette(palette, selected_indices=None):
     ax.set_title("Color Palette")
     ax.axis("off")
 
-    for i, (color, percentage) in enumerate(palette):
-        selected_indicator = "✓" if i in selected_indices else " "
-        print(
-            f"{selected_indicator} Color {i+1}: RGB{tuple(color)} - {percentage:.1f}%"
-        )
+    # for i, (color, percentage) in enumerate(palette):
+    #     selected_indicator = "✓" if i in selected_indices else " "
+    #     print(
+    #         f"{selected_indicator} Color {i+1}: RGB{tuple(color)} - {percentage:.1f}%"
+    #     )
 
     st.pyplot(fig, clear_figure=True)
 
@@ -91,8 +90,6 @@ def display_palette(single_image_path, n_colors=5):
         st.session_state[f"selected_colors_{single_image_path}"] = {0}
 
     selected_colors = st.session_state[f"selected_colors_{single_image_path}"]
-
-    st.write(f"Extracted {len(palette)} colors:")
 
     cols = st.columns(len(palette))
     for i, (color, percentage) in enumerate(palette):
@@ -108,42 +105,4 @@ def display_palette(single_image_path, n_colors=5):
             else:
                 selected_colors.discard(i)
 
-            # st.write(f"RGB{tuple(color)}")
-            # st.write(f"{percentage:.1f}%")
-
     plot_palette(palette, selected_colors)
-
-
-# def plot_palette(palette):
-#     fig, ax = plt.subplots()
-#     palette_height = 5
-#     palette_width = 20
-#     palette_img = np.zeros((palette_height, palette_width, 3), dtype=np.uint8)
-
-#     x_start = 0
-#     for i, (color, percentage) in enumerate(palette):
-#         if i == len(palette) - 1:
-#             section_width = palette_width - x_start
-#         else:
-#             section_width = int(palette_width * percentage / 100)
-
-#         palette_img[:, x_start : x_start + section_width] = color
-#         x_start += section_width
-
-#     ax.imshow(palette_img)
-#     ax.set_title("Color Palette")
-#     ax.axis("off")
-
-#     for i, (color, percentage) in enumerate(palette):
-#         print(f"Color {i+1}: RGB{tuple(color)} - {percentage:.1f}%")
-
-#     st.pyplot(fig, clear_figure=True)
-
-
-# def display_palette(single_image_path, n_colors=5):
-#     st.subheader("Extracted Color Palette")
-#     palette = extract_color_palette(single_image_path, n_colors=n_colors)
-#     st.write(f"Extracted {len(palette)} colors:")
-#     for i, (color, percentage) in enumerate(palette):
-#         st.write(f"Color {i + 1}: RGB{tuple(color)} - {percentage:.1f}%")
-#     plot_palette(palette)
