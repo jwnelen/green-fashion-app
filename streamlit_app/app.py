@@ -1,7 +1,9 @@
 import traceback
+from pathlib import Path
 
 import streamlit as st
 import torch
+from config import CLOTHING_CATEGORIES
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
@@ -33,6 +35,31 @@ def load_fashion_model():
     except Exception as e:
         st.error(f"Model loading failed: {str(e)}")
         return None, None, None
+
+
+@st.cache_data
+def load_image_paths(data_folder="artifacts/data"):
+    image_paths = []
+    image_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
+
+    full_path = Path(__file__).resolve().parents[1]
+    data_path = full_path / data_folder
+    if not data_path.exists():
+        return []
+
+    for subfolder in data_path.iterdir():
+        if subfolder.is_dir():
+            for image_file in subfolder.iterdir():
+                if image_file.suffix.lower() in image_extensions:
+                    image_paths.append(
+                        {
+                            "path": str(image_file),
+                            "display_name": f"{subfolder.name}/{image_file.name}",
+                            "category": subfolder.name,
+                        }
+                    )
+
+    return sorted(image_paths, key=lambda x: x["display_name"])
 
 
 def preprocess_image(image):
@@ -90,65 +117,46 @@ def classify_fashion_image(image, categories):
 
 def main():
     st.title("🛍️ Fashion Classification App")
-    st.markdown("Upload a fashion image and specify categories for classification")
+    st.markdown("Select a fashion image from the dataset and classify it")
+
+    image_paths = load_image_paths()
+
+    if not image_paths:
+        st.error(
+            "No images found in the 'data' folder. Please ensure the folder exists and contains image files."
+        )
+        return
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.subheader("Upload Image")
-        uploaded_file = st.file_uploader(
-            "Choose a fashion image",
-            type=["jpg", "jpeg", "png", "webp"],
-            help="Upload an image of clothing or fashion items",
+        st.subheader("Select Image")
+
+        selected_image_info = st.selectbox(
+            "Choose an image",
+            options=image_paths,
+            format_func=lambda x: x["display_name"],
+            help="Select an image from the dataset",
         )
 
-        if uploaded_file:
+        if selected_image_info:
             try:
-                image = Image.open(uploaded_file)
-                st.image(image, caption="Uploaded Image", width=300)
+                image = Image.open(selected_image_info["path"])
+                st.image(
+                    image,
+                    caption=f"Selected: {selected_image_info['display_name']}",
+                    width=300,
+                )
+                st.info(f"Category folder: {selected_image_info['category']}")
             except Exception as e:
                 st.error(f"Error loading image: {str(e)}")
                 return
 
     with col2:
         st.subheader("Classification Categories")
+        categories = CLOTHING_CATEGORIES
 
-        preset_categories = st.selectbox(
-            "Choose preset categories or create custom:",
-            [
-                "Custom",
-                "Basic Clothing Types",
-                "Formal vs Casual",
-                "Seasonal Wear",
-                "Gender Categories",
-            ],
-        )
-
-        if preset_categories == "Basic Clothing Types":
-            default_cats = "t-shirt, dress, jeans, jacket, shoes, accessories"
-        elif preset_categories == "Formal vs Casual":
-            default_cats = "formal wear, casual wear, sportswear, business attire"
-        elif preset_categories == "Seasonal Wear":
-            default_cats = (
-                "summer clothing, winter clothing, spring outfit, fall fashion"
-            )
-        elif preset_categories == "Gender Categories":
-            default_cats = "men's fashion, women's fashion, unisex clothing"
-        else:
-            default_cats = "casual t-shirt, formal dress, vintage jacket, modern shoes"
-
-        custom_categories = st.text_area(
-            "Enter categories (comma-separated):",
-            value=default_cats,
-            height=100,
-            help="List the fashion categories you want to classify against",
-        )
-
-        categories = [
-            cat.strip() for cat in custom_categories.split(",") if cat.strip()
-        ]
-
-        if len(categories) > 10:
+        if len(categories) > 15:
             st.warning(
                 "Too many categories may slow down processing. Consider using fewer than 10."
             )
@@ -156,13 +164,13 @@ def main():
         st.info(f"Categories to classify: {len(categories)}")
 
     if (
-        uploaded_file
+        selected_image_info
         and categories
         and st.button("🔍 Classify Fashion Item", type="primary")
     ):
         with st.spinner("Analyzing fashion item..."):
             try:
-                image = Image.open(uploaded_file)
+                image = Image.open(selected_image_info["path"])
                 results = classify_fashion_image(image, categories)
 
                 if results:
@@ -201,15 +209,15 @@ def main():
     with st.expander("ℹ️ How to use this app"):
         st.markdown(
             """
-        1. **Upload an image** of clothing or fashion items
-        2. **Choose categories** either from presets or create your own
+        1. **Select an image** from the dropdown menu (organized by category folders)
+        2. **View the selected image** and its category folder
         3. **Click Classify** to analyze the fashion item
         4. **View results** ranked by confidence score
 
         **Tips:**
-        - Use clear, well-lit images for better results
-        - Be specific with category names (e.g., "red summer dress" vs "dress")
-        - Try different category combinations to explore the model's understanding
+        - Images are organized by category folders in the 'data' directory
+        - The dropdown shows the folder structure for easy navigation
+        - Try different images to see how the model performs across categories
         """
         )
 
@@ -226,6 +234,19 @@ def main():
         **Training:** 800K+ fashion image-text pairs
         """
         )
+
+    with st.expander("📁 Dataset Information"):
+        if image_paths:
+            categories_count = {}
+            for img_info in image_paths:
+                category = img_info["category"]
+                categories_count[category] = categories_count.get(category, 0) + 1
+
+            st.markdown("**Available categories and image counts:**")
+            for category, count in sorted(categories_count.items()):
+                st.write(f"• {category}: {count} images")
+
+            st.write(f"**Total images:** {len(image_paths)}")
 
 
 if __name__ == "__main__":
