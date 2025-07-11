@@ -1,6 +1,5 @@
 import traceback
 
-import numpy as np
 import streamlit as st
 import torch
 from PIL import Image
@@ -161,7 +160,6 @@ def main():
         and categories
         and st.button("🔍 Classify Fashion Item", type="primary")
     ):
-
         with st.spinner("Analyzing fashion item..."):
             try:
                 image = Image.open(uploaded_file)
@@ -180,7 +178,7 @@ def main():
                                 st.success(f"**Best Match: {result['label']}**")
 
                             st.metric(
-                                label=f"#{i+1} {result['label']}",
+                                label=f"#{i + 1} {result['label']}",
                                 value=f"{confidence_pct:.1f}%",
                             )
 
@@ -190,7 +188,7 @@ def main():
                         st.subheader("All Results")
                         for result in results:
                             st.write(
-                                f"• {result['label']}: {result['confidence']*100:.1f}%"
+                                f"• {result['label']}: {result['confidence'] * 100:.1f}%"
                             )
 
                     if st.checkbox("Show detailed analysis"):
@@ -207,7 +205,7 @@ def main():
         2. **Choose categories** either from presets or create your own
         3. **Click Classify** to analyze the fashion item
         4. **View results** ranked by confidence score
-        
+
         **Tips:**
         - Use clear, well-lit images for better results
         - Be specific with category names (e.g., "red summer dress" vs "dress")
@@ -222,9 +220,9 @@ def main():
         - Understand fashion-specific terminology
         - Classify items with custom categories
         - Handle various clothing types and styles
-        
-        **Model:** `patrickjohncyh/fashion-clip`  
-        **Architecture:** CLIP (Vision + Language)  
+
+        **Model:** `patrickjohncyh/fashion-clip`
+        **Architecture:** CLIP (Vision + Language)
         **Training:** 800K+ fashion image-text pairs
         """
         )
