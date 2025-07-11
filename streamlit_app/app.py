@@ -1,12 +1,12 @@
-import traceback
 from pathlib import Path
 
 import streamlit as st
 import torch
-from color_palette_extractor import display_palette
 from config import CLOTHING_CATEGORIES
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
+
+from color_extracting.color_palette_extractor import display_palette
 
 st.set_page_config(page_title="Fashion Classifier", layout="wide")
 
@@ -39,7 +39,7 @@ def load_fashion_model():
 
 
 @st.cache_data
-def load_image_paths(category, data_folder="artifacts/data"):
+def load_image_paths(category, data_folder="artifacts/images"):
     image_paths = []
     image_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}
 
@@ -110,7 +110,6 @@ def classify_fashion_image(image, categories):
 
     except Exception as e:
         st.error(f"Classification error: {str(e)}")
-        st.code(traceback.format_exc())
         return []
 
 
