@@ -46,20 +46,20 @@ def plot_palette(palette, selected_indices=None):
     x_start = 0
     sections = []
 
-    for i, r in enumerate(palette):
-        color = r["color"]
-        if isinstance(color, str):
-            color = [
-                int(c) for c in color.replace("rgb(", "").replace(")", "").split(",")
-            ]
-        color = np.array(color, dtype=np.uint8)
-        percentage = r["percentage"]
+    for i, pair in enumerate(palette):
+        color_values = pair[0]
+        # if isinstance(color, str):
+        #     color = [
+        #         int(c) for c in color.replace("rgb(", "").replace(")", "").split(",")
+        #     ]
+        # color = np.array(color, dtype=np.uint8)
+        percentage = pair[1]
         if i == len(palette) - 1:
             section_width = palette_width - x_start
         else:
             section_width = int(palette_width * percentage / 100)
 
-        palette_img[:, x_start : x_start + section_width] = color
+        palette_img[:, x_start : x_start + section_width] = color_values
         sections.append((x_start, x_start + section_width, i))
         x_start += section_width
 

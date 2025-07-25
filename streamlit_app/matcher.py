@@ -1,18 +1,70 @@
-import json
 import os
 import random
+import sys
 from pathlib import Path
 
 import streamlit as st
 from PIL import Image
 
-from clothing.piece_mapper import section_to_name  # Import the section_to_name mapping
-from color_extracting.color_palette_extractor import plot_palette
+# Add the parent directory to the path to import from green_fashion
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from green_fashion.clothing.piece_mapper import section_to_name
+from green_fashion.color_extracting.color_palette_extractor import plot_palette
+from green_fashion.database.data_loader import DataLoader
+from green_fashion.database.wardrobe_manager import WardrobeManager
+
+
+def convert_palette_format(palette):
+    """Convert database color format to plot_palette format."""
+    converted_palette = []
+    for color_data in palette:
+        if isinstance(color_data, dict):
+            color_str = color_data.get("color", "rgb(0,0,0)")
+            percentage = color_data.get("percentage", 0)
+            # Parse RGB string to values
+            rgb_values = [
+                int(c.strip())
+                for c in color_str.replace("rgb(", "").replace(")", "").split(",")
+            ]
+            converted_palette.append((rgb_values, percentage))
+        else:
+            # If already in correct format
+            converted_palette.append(color_data)
+    return converted_palette
 
 
 @st.cache_data
-def load_dataset(file_path):
-    return json.load(open(file_path, "r"))
+def load_dataset_from_db():
+    """Load dataset from MongoDB, falling back to JSON file if needed."""
+    try:
+        with WardrobeManager() as wardrobe:
+            items = wardrobe.get_all_items()
+            if items:
+                return items
+            else:
+                # If database is empty, populate it from JSON file
+                st.info("Database is empty. Importing items from JSON file...")
+                loader = DataLoader()
+                json_items = loader.load_and_clean_dataset()
+                if json_items:
+                    imported_count = wardrobe.bulk_import_items(json_items)
+                    st.success(f"Imported {imported_count} items to database")
+                    return wardrobe.get_all_items()
+                else:
+                    st.error("No items found in JSON file")
+                    return []
+    except Exception as e:
+        st.warning(f"Failed to load from database: {e}")
+
+    # Fallback to JSON file
+    try:
+        loader = DataLoader()
+        items = loader.load_and_clean_dataset()
+        return items
+    except Exception as e:
+        st.error(f"Failed to load dataset from file: {e}")
+        return []
 
 
 def generate_outfit(image_data):
@@ -93,7 +145,8 @@ def display_outfit(outfit):
                     # Display color palette
                     palette = item.get("colors", [])
                     if palette:
-                        fig = plot_palette(palette)
+                        converted_palette = convert_palette_format(palette)
+                        fig = plot_palette(converted_palette)
                         st.pyplot(fig, clear_figure=True)
                         fig.clf()  # Clear the figure to free memory
 
@@ -144,9 +197,11 @@ def display_images_by_section(image_data):
                             # display_name = local_image_data["display_name"]
                             st.image(image, use_container_width=True)
                             palette = local_image_data.get("colors", [])
-                            fig = plot_palette(palette)
-                            st.pyplot(fig, clear_figure=True)
-                            fig.clf()  # Clear the figure to free memory
+                            if palette:
+                                converted_palette = convert_palette_format(palette)
+                                fig = plot_palette(converted_palette)
+                                st.pyplot(fig, clear_figure=True)
+                                fig.clf()  # Clear the figure to free memory
 
                     except Exception as e:
                         st.error(f"Error loading image {image_path}: {str(e)}")
@@ -158,12 +213,16 @@ def main():
     st.set_page_config(page_title="Green Fashion Outfit Generator", layout="wide")
     st.title("Green Fashion Outfit Generator")
 
-    full_path = Path(__file__).resolve().parents[1]
-    data_folder = full_path / "artifacts" / "datasets"
+    # Load dataset from MongoDB or JSON fallback
+    df = load_dataset_from_db()
 
-    df = load_dataset(data_folder / "dataset_all_colors_parsed.json")
-
-    st.success(f"Loaded {len(df)} records")
+    if df:
+        st.success(f"Loaded {len(df)} records")
+    else:
+        st.error(
+            "No clothing items found. Please check your database connection or dataset file."
+        )
+        return
 
     # Outfit Generator Section
     st.header("Outfit Generator")
@@ -181,10 +240,10 @@ def main():
     if st.session_state.current_outfit:
         display_outfit(st.session_state.current_outfit)
 
-    st.divider()
-    st.subheader("Dataset Overview")
-    with st.expander("View all clothing pieces by section"):
-        display_images_by_section(df)
+    # st.divider()
+    # st.subheader("Dataset Overview")
+    # with st.expander("View all clothing pieces by section"):
+    # display_images_by_section(df)
 
 
 if __name__ == "__main__":

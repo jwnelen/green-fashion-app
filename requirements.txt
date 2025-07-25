@@ -44,6 +44,8 @@ decorator==5.2.1
     # via ipython
 distlib==0.3.9
     # via virtualenv
+dnspython==2.7.0
+    # via pymongo
 executing==2.2.0
     # via stack-data
 filelock==3.18.0
@@ -214,6 +216,8 @@ pygments==2.19.2
     # via
     #   ipython
     #   ipython-pygments-lexers
+pymongo==4.13.2
+    # via green-fashion
 pyparsing==3.2.3
     # via matplotlib
 python-dateutil==2.9.0.post0
@@ -222,6 +226,8 @@ python-dateutil==2.9.0.post0
     #   jupyter-client
     #   matplotlib
     #   pandas
+python-dotenv==1.1.1
+    # via green-fashion
 pytz==2025.2
     # via pandas
 pywin32==310 ; platform_python_implementation != 'PyPy' and sys_platform == 'win32'
