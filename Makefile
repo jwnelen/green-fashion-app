@@ -1,5 +1,5 @@
 start_streamlit:
-	uv run -- streamlit run streamlit_app/app.py
+	uv run -- streamlit run streamlit_app/clothing_classifier.py
 
 start_streamlit_matcher:
 	uv run -- streamlit run streamlit_app/matcher.py
