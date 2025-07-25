@@ -108,3 +108,4 @@ def display_palette(single_image_path, n_colors=5):
 
     fig = plot_palette(palette, selected_colors)
     st.pyplot(fig, clear_figure=True)
+    plt.close(fig)  # Close the figure to free memory
