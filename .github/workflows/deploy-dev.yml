@@ -1,119 +1,35 @@
-name: Deploy to Development
+name: Deploy to Development (Deprecated)
+
+# ⚠️ DEPRECATED: This workflow has been replaced by separate workflows:
+# - build-and-push.yml: Builds and pushes Docker images
+# - deploy-infrastructure.yml: Deploys infrastructure changes
+#
+# Use those workflows instead of this one.
 
 on:
-  push:
-    branches: [ develop ]
   workflow_dispatch:
     inputs:
-      force_deploy:
-        description: 'Force deployment even if tests fail'
+      notice:
+        description: 'This workflow is deprecated - use build-and-push.yml and deploy-infrastructure.yml instead'
         required: false
-        default: 'false'
-
-env:
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  GCP_REGION: us-central1
-  ENVIRONMENT: dev
-  SERVICE_NAME: green-fashion-dev
+        default: 'acknowledged'
 
 jobs:
-  deploy:
+  deprecation-notice:
     runs-on: ubuntu-latest
-    environment: development
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - id: 'auth'
-      uses: 'google-github-actions/auth@v2'
-      with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-
-    - name: 'Set up Cloud SDK'
-      uses: 'google-github-actions/setup-gcloud@v2'
-
-    - name: Configure Docker for GCP
+    - name: Deprecated workflow notice
       run: |
-        gcloud auth configure-docker
+        echo "⚠️ This workflow is DEPRECATED"
+        echo ""
+        echo "Please use the new separated workflows:"
+        echo "1. build-and-push.yml - Builds and pushes Docker images when code changes"
+        echo "2. deploy-infrastructure.yml - Deploys infrastructure when Terraform changes"
+        echo ""
+        echo "Benefits of the new approach:"
+        echo "✅ Faster builds - only rebuild when code changes"
+        echo "✅ Independent deployments - deploy infrastructure without rebuilding"
+        echo "✅ Better caching and efficiency"
+        echo "✅ Path-based triggers for precise control"
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build and push Docker image
-      env:
-        IMAGE_TAG: gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:${{ github.sha }}
-        LATEST_TAG: gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:latest
-      run: |
-        docker build -t $IMAGE_TAG -t $LATEST_TAG .
-        docker push $IMAGE_TAG
-        docker push $LATEST_TAG
-
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.6.0
-
-    - name: Terraform init
-      working-directory: ./terraform
-      env:
-        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-      run: |
-        terraform init
-
-    - name: Terraform plan
-      working-directory: ./terraform
-      env:
-        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-        TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
-        TF_VAR_environment: ${{ env.ENVIRONMENT }}
-        TF_VAR_container_image: gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:${{ github.sha }}
-        TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
-      run: |
-        terraform plan -var-file="environments/dev.tfvars" -out=tfplan
-
-    - name: Terraform apply
-      working-directory: ./terraform
-      env:
-        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-        TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
-        TF_VAR_environment: ${{ env.ENVIRONMENT }}
-        TF_VAR_container_image: gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:${{ github.sha }}
-        TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
-      run: |
-        terraform apply -auto-approve tfplan
-
-    - name: Get service URL
-      working-directory: ./terraform
-      run: |
-        SERVICE_URL=$(terraform output -raw service_url)
-        echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
-        echo "✅ Deployed to: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
-
-    - name: Health check
-      run: |
-        echo "Waiting for service to be ready..."
-        sleep 60
-
-        for i in {1..5}; do
-          if curl -f "${{ env.SERVICE_URL }}/_stcore/health"; then
-            echo "✅ Health check passed"
-            exit 0
-          fi
-          echo "⏳ Attempt $i failed, retrying in 30s..."
-          sleep 30
-        done
-
-        echo "❌ Health check failed after 5 attempts"
         exit 1
-
-    # - name: Notify deployment status
-    #   if: always()
-    #   uses: 8398a7/action-slack@v3
-    #   with:
-    #     status: ${{ job.status }}
-    #     channel: '#deployments'
-    #     webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-    #     fields: repo,message,commit,author,action,eventName,ref,workflow
-    #   env:
-    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
