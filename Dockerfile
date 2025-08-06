@@ -17,7 +17,7 @@ RUN useradd --create-home --shell /bin/bash app
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml requirements.txt ./
+COPY requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
