@@ -3,6 +3,12 @@ variable "project_id" {
   type        = string
 }
 
+variable "impersonate_service_account" {
+  description = "Service account to impersonate for Terraform operations"
+  type        = string
+  default     = null
+}
+
 variable "region" {
   description = "Google Cloud region"
   type        = string

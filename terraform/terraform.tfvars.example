@@ -5,6 +5,9 @@ project_id = "your-gcp-project-id"
 region     = "us-central1"
 zone       = "us-central1-a"
 
+# Optional: Service account to impersonate (useful for CI/CD)
+impersonate_service_account = "terraform@your-project-id.iam.gserviceaccount.com"
+
 environment = "dev" # or "staging" or "prod"
 
 # Container image (will be updated by CI/CD)
