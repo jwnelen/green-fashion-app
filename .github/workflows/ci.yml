@@ -1,0 +1,127 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov black isort flake8
+
+    - name: Run code formatting checks
+      run: |
+        black --check .
+        isort --check-only .
+
+    - name: Run linting
+      run: |
+        flake8 green_fashion/ --max-line-length=88 --extend-ignore=E203,W503
+
+    - name: Run type checking
+      run: |
+        pip install mypy
+        mypy green_fashion/ --ignore-missing-imports
+
+    - name: Run tests
+      env:
+        MONGODB_URI: mongodb://root:password@localhost:27017/
+        ENVIRONMENT: test
+      run: |
+        pytest tests/ -v --cov=green_fashion --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to Codecov
+      if: success()
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security scan with Bandit
+      run: |
+        pip install bandit
+        bandit -r green_fashion/ -f json -o bandit-report.json || true
+
+    - name: Run safety check for vulnerabilities
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: green-fashion:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker container
+      run: |
+        docker run --rm -d -p 8080:8080 --name test-container green-fashion:${{ github.sha }}
+        sleep 30
+        curl -f http://localhost:8080/_stcore/health || exit 1
+        docker stop test-container

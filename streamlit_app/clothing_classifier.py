@@ -5,8 +5,8 @@ import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-from clothing.config import CLOTHING_CATEGORIES
-from color_extracting.color_palette_extractor import display_palette
+from green_fashion.clothing.config import CLOTHING_CATEGORIES
+from green_fashion.color_extracting.color_palette_extractor import display_palette
 
 st.set_page_config(page_title="Fashion Classifier", layout="wide")
 

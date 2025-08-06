@@ -36,3 +36,10 @@ CLOTHING_CATEGORIES = [
 
 # Body sections mapping
 BODY_SECTIONS = {0: "Head", 1: "Upper Body", 2: "Lower Body", 3: "Feet"}
+
+# Environment variables that should be set for GCS integration:
+# GCS_CREDENTIALS_PATH - Path to service account JSON file
+# GCS_PROJECT_ID - Google Cloud project ID
+# GCS_BUCKET_DEV - Development bucket name (default: green-fashion-dev)
+# GCS_BUCKET_PROD - Production bucket name (default: green-fashion-prod)
+# ENVIRONMENT - Current environment (dev/prod, default: dev)
