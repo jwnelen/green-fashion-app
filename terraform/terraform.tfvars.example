@@ -30,6 +30,5 @@ allowed_ingress = "all" # "all", "internal", or "internal-and-cloud-load-balanci
 # Optional custom domain
 custom_domain = "" # e.g., "green-fashion.example.com"
 
-# Monitoring
-enable_monitoring = true
-enable_cdn       = false
+# CDN
+enable_cdn = false

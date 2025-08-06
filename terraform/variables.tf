@@ -82,12 +82,6 @@ variable "custom_domain" {
   default     = ""
 }
 
-variable "enable_monitoring" {
-  description = "Enable monitoring and alerting"
-  type        = bool
-  default     = true
-}
-
 variable "enable_cdn" {
   description = "Enable Cloud CDN for static assets"
   type        = bool

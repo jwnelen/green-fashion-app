@@ -3,7 +3,7 @@
 environment = "dev"
 
 # Optional: Service account to impersonate for Terraform operations
-impersonate_service_account = "terraform@clothing-manager-468218.iam.gserviceaccount.com"
+# impersonate_service_account = "terraform@clothing-manager-468218.iam.gserviceaccount.com"
 
 # Scaling configuration - lower for dev
 min_instances = 0
@@ -16,9 +16,8 @@ cpu    = "1"
 # Access control - public for dev testing
 allowed_ingress = "all"
 
-# Monitoring - enabled but less aggressive
-enable_monitoring = true
-enable_cdn       = false
+# CDN - disabled for dev
+enable_cdn = false
 
 # Custom domain (optional)
 custom_domain = ""

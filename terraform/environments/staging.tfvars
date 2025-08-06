@@ -13,9 +13,8 @@ cpu    = "1"
 # Access control - internal for staging
 allowed_ingress = "internal-and-cloud-load-balancing"
 
-# Monitoring - full monitoring for staging
-enable_monitoring = true
-enable_cdn       = false
+# CDN - disabled for staging
+enable_cdn = false
 
 # Custom domain (optional)
 custom_domain = "" # e.g., "staging.green-fashion.example.com"
