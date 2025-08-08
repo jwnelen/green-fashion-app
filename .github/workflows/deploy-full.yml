@@ -114,7 +114,7 @@ jobs:
       - name: Get primary tag (commit SHA)
         id: primary
         run: |
-          SHA_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[] | select(test(":[0-9a-f]{7,}$"))' | head -n 1)
+          SHA_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[] | select(test(":sha-[0-9a-f]{7}$"))' | head -n 1)
           echo "Primary tag (SHA): $SHA_TAG"
           echo "tag=$SHA_TAG" >> $GITHUB_OUTPUT
 
