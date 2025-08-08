@@ -134,15 +134,22 @@ jobs:
       - name: Test Docker container
         if: github.event_name == 'pull_request'
         run: |
+          # Start test MongoDB
+          docker run --rm -d --name test-mongodb -p 27017:27017 mongo:7
+          sleep 10
+
           docker pull ${{ steps.primary.outputs.tag }}
-          docker run --rm -d -p 8000:8000 --name test-container -e MONGODB_URI="${{ secrets.MONGODB_URI }}" ${{ steps.primary.outputs.tag }}
+          docker run --rm -d -p 8000:8000 --name test-container -e MONGODB_URI="mongodb://172.17.0.1:27017/test" ${{ steps.primary.outputs.tag }}
           echo "Waiting for container to start..."
-          sleep 60
+          sleep 30
           echo "Checking container logs:"
           docker logs test-container
           echo "Testing health endpoint:"
           curl -f http://localhost:8000/health || exit 1
+
+          # Cleanup
           docker stop test-container
+          docker stop test-mongodb
 
   deploy:
     runs-on: ubuntu-latest
@@ -213,7 +220,6 @@ jobs:
           TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
           TF_VAR_environment: ${{ needs.changes.outputs.environment }}
           TF_VAR_container_image: ${{ steps.image.outputs.container_image }}
-          TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
         run: |
           terraform plan -var-file="${{ needs.changes.outputs.tfvars_file }}" -out=tfplan
           terraform show -no-color tfplan > plan-output.txt
@@ -225,7 +231,6 @@ jobs:
           TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
           TF_VAR_environment: ${{ needs.changes.outputs.environment }}
           TF_VAR_container_image: ${{ steps.image.outputs.container_image }}
-          TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
         run: terraform apply -auto-approve tfplan
 
       - name: Get service URL and health check
