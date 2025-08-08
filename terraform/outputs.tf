@@ -1,11 +1,11 @@
-output "service_url" {
-  description = "URL of the deployed Cloud Run service"
-  value       = google_cloud_run_v2_service.green_fashion_app.uri
+output "api_url" {
+  description = "URL of the deployed API Cloud Run service"
+  value       = google_cloud_run_v2_service.green_fashion_api.uri
 }
 
-output "service_name" {
-  description = "Name of the Cloud Run service"
-  value       = google_cloud_run_v2_service.green_fashion_app.name
+output "api_name" {
+  description = "Name of the API Cloud Run service"
+  value       = google_cloud_run_v2_service.green_fashion_api.name
 }
 
 output "storage_bucket_name" {

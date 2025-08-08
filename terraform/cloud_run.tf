@@ -1,5 +1,5 @@
-# Cloud Run service for the Streamlit application
-resource "google_cloud_run_v2_service" "green_fashion_app" {
+# Cloud Run service for the API
+resource "google_cloud_run_v2_service" "green_fashion_api" {
   name     = "${local.service_name}-${var.environment}"
   location = var.region
 
@@ -64,16 +64,16 @@ resource "google_cloud_run_v2_service" "green_fashion_app" {
 
       # Ports
       ports {
-        container_port = 8080
+        container_port = 8000
       }
 
       # Health check
       startup_probe {
         http_get {
-          path = "/_stcore/health"
-          port = 8080
+          path = "/health"
+          port = 8000
         }
-        initial_delay_seconds = 60
+        initial_delay_seconds = 30
         timeout_seconds       = 10
         period_seconds        = 10
         failure_threshold     = 3
@@ -81,10 +81,10 @@ resource "google_cloud_run_v2_service" "green_fashion_app" {
 
       liveness_probe {
         http_get {
-          path = "/_stcore/health"
-          port = 8080
+          path = "/health"
+          port = 8000
         }
-        initial_delay_seconds = 60
+        initial_delay_seconds = 30
         timeout_seconds       = 10
         period_seconds        = 30
         failure_threshold     = 3
@@ -113,8 +113,8 @@ resource "google_cloud_run_v2_service" "green_fashion_app" {
 resource "google_cloud_run_service_iam_member" "public_access" {
   count = var.allowed_ingress == "all" ? 1 : 0
 
-  location = google_cloud_run_v2_service.green_fashion_app.location
-  service  = google_cloud_run_v2_service.green_fashion_app.name
+  location = google_cloud_run_v2_service.green_fashion_api.location
+  service  = google_cloud_run_v2_service.green_fashion_api.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -132,6 +132,6 @@ resource "google_cloud_run_domain_mapping" "custom_domain" {
   }
 
   spec {
-    route_name = google_cloud_run_v2_service.green_fashion_app.name
+    route_name = google_cloud_run_v2_service.green_fashion_api.name
   }
 }

@@ -4,9 +4,9 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     ports:
-      - "8080:8080"
+      - "8000:8000"
     environment:
       - ENVIRONMENT=dev
       - MONGODB_URI=mongodb://mongo:27017/
@@ -15,7 +15,7 @@ services:
       - GCS_BUCKET_PROD=${GCS_BUCKET_PROD:-green-fashion-prod}
     volumes:
       # Mount source code for development
-      - ./streamlit_app:/app/streamlit_app:ro
+      - ./api:/app/api:ro
       - ./green_fashion:/app/green_fashion:ro
       # Mount GCS credentials if available
       - ${GCS_CREDENTIALS_PATH:-/dev/null}:/app/gcs-key.json:ro
