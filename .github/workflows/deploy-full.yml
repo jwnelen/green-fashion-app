@@ -100,14 +100,22 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,format=short
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value={{sha}}
+            type=raw,value={{date 'YYYYMMDD-HHmm'}}
+
+      - name: Debug metadata output
+        run: |
+          echo "Generated tags:"
+          echo '${{ steps.meta.outputs.tags }}'
+          echo "JSON output:"
+          echo '${{ steps.meta.outputs.json }}'
 
       - name: Get primary tag
         id: primary
         run: |
           PRIMARY_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[0]')
+          echo "Primary tag: $PRIMARY_TAG"
           echo "tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
