@@ -164,7 +164,7 @@ jobs:
           else
             # Find the latest image that has tags (skip untagged images)
             TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-              --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -v '^$' | head -1)
+              --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -E '^[^[:space:]]+$' | head -1)
 
             if [[ -z "$TAG" ]]; then
               echo "No tagged container image found. Please build and push an image first."

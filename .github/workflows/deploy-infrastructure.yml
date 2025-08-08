@@ -68,15 +68,15 @@ jobs:
           IMAGE="${{ inputs.container_image }}"
         else
           # Get the latest image from the registry
-          IMAGE=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion \
-            --limit=1 --sort-by=~TIMESTAMP --format='value(tags[0])' | head -1)
+          TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion \
+            --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -E '^[^[:space:]]+$' | head -1)
 
-          if [[ -z "$IMAGE" ]]; then
-            echo "No container image found. Please build and push an image first."
+          if [[ -z "$TAG" ]]; then
+            echo "No tagged container image found. Please build and push an image first."
             exit 1
           fi
 
-          IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:$IMAGE"
+          IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion:$TAG"
         fi
 
         echo "container_image=$IMAGE" >> $GITHUB_OUTPUT
