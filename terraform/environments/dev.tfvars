@@ -3,7 +3,7 @@
 environment = "dev"
 
 # Optional: Service account to impersonate for Terraform operations
-# impersonate_service_account = "terraform@clothing-manager-468218.iam.gserviceaccount.com"
+impersonate_service_account = "terraform@clothing-manager-468218.iam.gserviceaccount.com"
 
 # Scaling configuration - lower for dev
 min_instances = 0

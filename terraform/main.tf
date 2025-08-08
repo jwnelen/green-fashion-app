@@ -7,12 +7,10 @@ terraform {
     }
   }
 
-  # Backend configuration for state management
-  # Uncomment and configure for production use
-  # backend "gcs" {
-  #   bucket = "your-terraform-state-bucket"
-  #   prefix = "green-fashion"
-  # }
+  backend "gcs" {
+    bucket  = "green-fashion-terraform-state"
+    prefix  = "environments/dev"
+  }
 }
 
 provider "google" {
