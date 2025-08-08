@@ -1,25 +1,14 @@
-"""
-MongoDB-based wardrobe management system.
-
-This module provides CRUD operations for managing clothing items in a MongoDB database,
-including image file management and search functionality.
-"""
-
-import os
-import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
 from bson import ObjectId
 from pymongo import MongoClient
 
-from .config import MONGODB_URI, DATABASE_NAME, COLLECTION_NAME, WARDROBE_IMAGES_DIR
+from .config import COLLECTION_NAME, DATABASE_NAME, MONGODB_URI, WARDROBE_IMAGES_DIR
 
 
-class WardrobeManager:
+class MongoDBManager:
     """
-    Manages wardrobe items in MongoDB with file storage capabilities.
-
     This class provides comprehensive CRUD operations for clothing items,
     including image management and search functionality.
 
@@ -59,9 +48,9 @@ class WardrobeManager:
         try:
             self.client = MongoClient(
                 self.mongodb_uri,
-                serverSelectionTimeoutMS=2000,  # 2 second timeout
-                connectTimeoutMS=2000,  # 2 second connection timeout
-                socketTimeoutMS=2000,  # 2 second socket timeout
+                serverSelectionTimeoutMS=4000,  # 2 second timeout
+                connectTimeoutMS=4000,  # 2 second connection timeout
+                socketTimeoutMS=4000,  # 2 second socket timeout
             )
             self.db = self.client[self.database_name]
             self.collection = self.db[self.collection_name]
@@ -178,12 +167,6 @@ class WardrobeManager:
         """
         try:
             # First get the item to check if it has an image
-            item = self.collection.find_one({"_id": ObjectId(item_id)})
-            if item and item.get("path"):
-                # Only delete uploaded images (in wardrobe directory)
-                if "wardrobe" in item["path"]:
-                    self.delete_image_file(item["path"])
-
             result = self.collection.delete_one({"_id": ObjectId(item_id)})
             return result.deleted_count > 0
         except Exception as e:
@@ -252,82 +235,6 @@ class WardrobeManager:
         except Exception as e:
             print(f"Error fetching categories: {str(e)}")
             return []
-
-    # Image Management
-
-    def save_uploaded_image(self, uploaded_file, category: str) -> Optional[str]:
-        """
-        Save an uploaded image file and return the file path.
-
-        Args:
-            uploaded_file: Uploaded file object
-            category: Item category for organizing files
-
-        Returns:
-            str: File path if successful, None otherwise
-        """
-        try:
-            # Generate unique filename
-            file_extension = uploaded_file.name.split(".")[-1].lower()
-            unique_filename = f"{uuid.uuid4()}.{file_extension}"
-
-            # Create category subdirectory if it doesn't exist
-            category_dir = WARDROBE_IMAGES_DIR / category
-            category_dir.mkdir(exist_ok=True)
-
-            # Full path for the image
-            image_path = category_dir / unique_filename
-
-            # Save the image
-            with open(image_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-
-            return str(image_path)
-        except Exception as e:
-            print(f"Error saving image: {str(e)}")
-            return None
-
-    def delete_image_file(self, image_path: str) -> bool:
-        """
-        Delete an image file from the filesystem.
-
-        Args:
-            image_path: Path to the image file
-
-        Returns:
-            bool: True if deletion successful, False otherwise
-        """
-        try:
-            if image_path and os.path.exists(image_path):
-                os.remove(image_path)
-                return True
-            return False
-        except Exception as e:
-            print(f"Error deleting image file: {str(e)}")
-            return False
-
-    # Bulk Operations
-
-    def bulk_import_items(self, items: List[Dict]) -> int:
-        """
-        Import multiple items in bulk.
-
-        Args:
-            items: List of item dictionaries to import
-
-        Returns:
-            int: Number of items successfully imported
-        """
-        imported_count = 0
-        for item in items:
-            # Check if item already exists (by path)
-            existing = list(self.collection.find({"path": item.get("path")}))
-            if not existing:
-                if self.add_clothing_item(item):
-                    imported_count += 1
-        return imported_count
-
-    # Statistics
 
     def get_item_count(self) -> int:
         """
