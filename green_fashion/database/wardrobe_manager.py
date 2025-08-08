@@ -44,6 +44,7 @@ class WardrobeManager:
         self.client = None
         self.db = None
         self.collection = None
+        self.connection_error = None
 
         self.connect_to_db()
         self.ensure_image_directory()
@@ -56,7 +57,12 @@ class WardrobeManager:
             bool: True if connection successful, False otherwise
         """
         try:
-            self.client = MongoClient(self.mongodb_uri)
+            self.client = MongoClient(
+                self.mongodb_uri,
+                serverSelectionTimeoutMS=2000,  # 2 second timeout
+                connectTimeoutMS=2000,  # 2 second connection timeout
+                socketTimeoutMS=2000,  # 2 second socket timeout
+            )
             self.db = self.client[self.database_name]
             self.collection = self.db[self.collection_name]
 
@@ -65,6 +71,10 @@ class WardrobeManager:
             return True
         except Exception as e:
             print(f"Failed to connect to MongoDB: {str(e)}")
+            self.connection_error = str(e)
+            self.client = None
+            self.db = None
+            self.collection = None
             return False
 
     def close_connection(self):

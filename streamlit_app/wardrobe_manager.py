@@ -107,13 +107,46 @@ def main():
 
     # Check database connection
     if not wm.client:
-        st.error("Failed to connect to MongoDB. Please check your configuration.")
-        st.info(
-            "Make sure MongoDB is running and the connection string in .env is correct."
-        )
+        st.error("❌ Failed to connect to MongoDB")
+
+        # Show detailed error information
+        if hasattr(wm, "connection_error") and wm.connection_error:
+            with st.expander("🔍 Connection Error Details"):
+                st.code(wm.connection_error)
+
+                # Provide helpful suggestions based on error type
+                if "ServerSelectionTimeoutError" in wm.connection_error:
+                    st.warning("**Possible causes:**")
+                    st.write("• MongoDB server is not running")
+                    st.write("• Network connectivity issues")
+                    st.write("• Incorrect host/port in connection string")
+                elif "AuthenticationFailed" in wm.connection_error:
+                    st.warning("**Authentication Issue:**")
+                    st.write("• Check username/password in connection string")
+                    st.write("• Verify database user permissions")
+                elif "ConfigurationError" in wm.connection_error:
+                    st.warning("**Configuration Issue:**")
+                    st.write("• Check MONGODB_URI environment variable")
+                    st.write("• Verify connection string format")
+                else:
+                    st.warning("**General troubleshooting:**")
+                    st.write("• Check MONGODB_URI environment variable")
+                    st.write("• Ensure MongoDB is running and accessible")
+                    st.write("• Verify network connectivity")
+
+        st.info("**Next steps:**")
+        st.write("1. Check your MongoDB connection string")
+        st.write("2. Ensure MongoDB server is running")
+        st.write("3. Verify network connectivity")
+        st.write("4. Check authentication credentials")
+
+        # Add retry button
+        if st.button("🔄 Retry Connection"):
+            st.rerun()
+
         st.stop()
     else:
-        st.success("Connected to MongoDB successfully!")
+        st.success("✅ Connected to MongoDB successfully!")
 
     # Sidebar for navigation
     st.sidebar.header("Navigation")
