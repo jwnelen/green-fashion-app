@@ -3,6 +3,8 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
   name     = "${local.service_name}-${var.environment}"
   location = var.region
 
+  deletion_protection = false
+
   labels = local.labels
 
   # Prevent accidental deletion
