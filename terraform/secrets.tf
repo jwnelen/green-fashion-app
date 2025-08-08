@@ -1,17 +1,11 @@
 # Secret Manager for sensitive configuration
-resource "google_secret_manager_secret" "mongodb_uri" {
+# Reference existing MongoDB URI secret
+data "google_secret_manager_secret" "mongodb_uri" {
   secret_id = "${local.service_name}-${var.environment}-mongodb-uri"
-
-  labels = local.labels
-
-  replication {
-    auto {}
-  }
 }
 
-resource "google_secret_manager_secret_version" "mongodb_uri" {
-  secret      = google_secret_manager_secret.mongodb_uri.id
-  secret_data = var.mongodb_uri
+data "google_secret_manager_secret_version" "mongodb_uri" {
+  secret = data.google_secret_manager_secret.mongodb_uri.id
 }
 
 # Service account key for GCS access (optional - using workload identity is preferred)

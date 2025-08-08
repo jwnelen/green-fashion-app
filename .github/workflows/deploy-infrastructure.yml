@@ -116,7 +116,6 @@ jobs:
         TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ needs.determine-environment.outputs.environment }}
         TF_VAR_container_image: ${{ needs.get-latest-image.outputs.container_image }}
-        TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
       run: |
         terraform plan -var-file="${{ needs.determine-environment.outputs.tfvars_file }}" -out=tfplan
 
@@ -147,7 +146,6 @@ jobs:
         TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ needs.determine-environment.outputs.environment }}
         TF_VAR_container_image: ${{ needs.get-latest-image.outputs.container_image }}
-        TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
       run: |
         terraform apply -auto-approve tfplan
 

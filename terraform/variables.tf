@@ -60,11 +60,6 @@ variable "cpu" {
   default     = "2"
 }
 
-variable "mongodb_uri" {
-  description = "MongoDB connection URI"
-  type        = string
-  sensitive   = true
-}
 
 variable "allowed_ingress" {
   description = "Allowed ingress for Cloud Run service"
