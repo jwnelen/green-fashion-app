@@ -135,9 +135,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           docker pull ${{ steps.primary.outputs.tag }}
-          docker run --rm -d -p 8080:8080 --name test-container ${{ steps.primary.outputs.tag }}
+          docker run --rm -d -p 8000:8000 --name test-container ${{ steps.primary.outputs.tag }}
           sleep 30
-          curl -f http://localhost:8080/_stcore/health || exit 1
+          curl -f http://localhost:8000/health || exit 1
           docker stop test-container
 
   deploy:
@@ -234,7 +234,7 @@ jobs:
           sleep 60
 
           for i in {1..5}; do
-            if curl -f "$SERVICE_URL/_stcore/health"; then
+            if curl -f "$SERVICE_URL/health"; then
               echo "✅ Health check passed"
               echo "🚀 Deployment successful to ${{ needs.changes.outputs.environment }}: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
               echo "📦 Container image: ${{ steps.image.outputs.container_image }}" >> $GITHUB_STEP_SUMMARY
