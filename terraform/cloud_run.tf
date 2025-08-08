@@ -56,7 +56,7 @@ resource "google_cloud_run_v2_service" "green_fashion_app" {
         name = "MONGODB_URI"
         value_source {
           secret_key_ref {
-            secret  = data.google_secret_manager_secret.mongodb_uri.secret_id
+            secret  = data.google_secret_manager_secret.mongodb_uri.id
             version = "latest"
           }
         }
