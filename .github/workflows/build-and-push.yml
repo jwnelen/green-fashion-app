@@ -1,25 +1,35 @@
 name: Build and Push Docker Image
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      # Trigger when application code changes
-      - 'green_fashion/**'
-      - 'streamlit_app/**'
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - 'pyproject.toml'
-      - '.dockerignore'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'green_fashion/**'
-      - 'streamlit_app/**'
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - 'pyproject.toml'
-      - '.dockerignore'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select the environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+  # push:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     # Trigger when application code changes
+  #     - 'green_fashion/**'
+  #     - 'streamlit_app/**'
+  #     - 'Dockerfile'
+  #     - 'requirements.txt'
+  #     - 'pyproject.toml'
+  #     - '.dockerignore'
+  # pull_request:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     - 'green_fashion/**'
+  #     - 'streamlit_app/**'
+  #     - 'Dockerfile'
+  #     - 'requirements.txt'
+  #     - 'pyproject.toml'
+  #     - '.dockerignore'
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

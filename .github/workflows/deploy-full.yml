@@ -1,0 +1,224 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+      force_infrastructure:
+        description: 'Force infrastructure deployment'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  IMAGE_NAME: green-fashion
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      infrastructure: ${{ steps.changes.outputs.infrastructure }}
+      application: ${{ steps.changes.outputs.application }}
+      environment: ${{ steps.env.outputs.environment }}
+      tfvars_file: ${{ steps.env.outputs.tfvars_file }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            infrastructure:
+              - 'terraform/**'
+              - '.github/workflows/deploy-full.yml'
+              - '.github/workflows/deploy-infrastructure.yml'
+            application:
+              - 'green_fashion/**'
+              - 'streamlit_app/**'
+              - 'Dockerfile'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+              - '.dockerignore'
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ inputs.environment }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENV="prod"
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            ENV="dev"
+          else
+            ENV="dev"
+          fi
+
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "tfvars_file=environments/${ENV}.tfvars" >> $GITHUB_OUTPUT
+
+  build:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.application == 'true' || github.event_name == 'workflow_dispatch'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+      primary-tag: ${{ steps.primary.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Configure Docker for GCP
+        run: gcloud auth configure-docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Get primary tag
+        id: primary
+        run: |
+          PRIMARY_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[0]')
+          echo "tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Test Docker container
+        if: github.event_name == 'pull_request'
+        run: |
+          docker pull ${{ steps.primary.outputs.tag }}
+          docker run --rm -d -p 8080:8080 --name test-container ${{ steps.primary.outputs.tag }}
+          sleep 30
+          curl -f http://localhost:8080/_stcore/health || exit 1
+          docker stop test-container
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.changes.outputs.infrastructure == 'true' ||
+       needs.changes.outputs.application == 'true' ||
+       inputs.force_infrastructure == true)
+    environment:
+      name: ${{ needs.changes.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Determine container image
+        id: image
+        run: |
+          if [[ "${{ needs.build.outputs.primary-tag }}" != "" ]]; then
+            IMAGE="${{ needs.build.outputs.primary-tag }}"
+          else
+            IMAGE=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
+              --limit=1 --sort-by=~TIMESTAMP --format='value(tags[0])' | head -1)
+
+            if [[ -z "$IMAGE" ]]; then
+              echo "No container image found. Please build and push an image first."
+              exit 1
+            fi
+
+            IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:$IMAGE"
+          fi
+
+          echo "container_image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Terraform init
+        working-directory: ./terraform
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: ./terraform
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
+          TF_VAR_environment: ${{ needs.changes.outputs.environment }}
+          TF_VAR_container_image: ${{ steps.image.outputs.container_image }}
+          TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
+        run: |
+          terraform plan -var-file="${{ needs.changes.outputs.tfvars_file }}" -out=tfplan
+          terraform show -no-color tfplan > plan-output.txt
+
+      - name: Terraform apply
+        working-directory: ./terraform
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          TF_VAR_project_id: ${{ env.GCP_PROJECT_ID }}
+          TF_VAR_environment: ${{ needs.changes.outputs.environment }}
+          TF_VAR_container_image: ${{ steps.image.outputs.container_image }}
+          TF_VAR_mongodb_uri: ${{ secrets.MONGODB_URI }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get service URL and health check
+        working-directory: ./terraform
+        run: |
+          SERVICE_URL=$(terraform output -raw service_url)
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
+
+          echo "Waiting for service to be ready..."
+          sleep 60
+
+          for i in {1..5}; do
+            if curl -f "$SERVICE_URL/_stcore/health"; then
+              echo "✅ Health check passed"
+              echo "🚀 Deployment successful to ${{ needs.changes.outputs.environment }}: $SERVICE_URL" >> $GITHUB_STEP_SUMMARY
+              echo "📦 Container image: ${{ steps.image.outputs.container_image }}" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+            echo "⏳ Attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+
+          echo "❌ Health check failed after 5 attempts"
+          exit 1

@@ -1,12 +1,12 @@
 name: Deploy Infrastructure
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      # Trigger when infrastructure code changes
-      - 'terraform/**'
-      - '.github/workflows/deploy-infrastructure.yml'
+  # push:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     # Trigger when infrastructure code changes
+  #     - 'terraform/**'
+  #     - '.github/workflows/deploy-infrastructure.yml'
   workflow_dispatch:
     inputs:
       environment:
