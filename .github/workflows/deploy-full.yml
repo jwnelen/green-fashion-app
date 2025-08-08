@@ -47,9 +47,11 @@ jobs:
             application:
               - 'green_fashion/**'
               - 'streamlit_app/**'
+              - 'notebooks/**'
               - 'Dockerfile'
               - 'requirements.txt'
               - 'pyproject.toml'
+              - 'uv.lock'
               - '.dockerignore'
 
       - name: Determine environment
@@ -160,15 +162,16 @@ jobs:
           if [[ "${{ needs.build.outputs.primary-tag }}" != "" ]]; then
             IMAGE="${{ needs.build.outputs.primary-tag }}"
           else
-            IMAGE=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-              --limit=1 --sort-by=~TIMESTAMP --format='value(tags[0])' | head -1)
+            # Find the latest image that has tags (skip untagged images)
+            TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
+              --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -v '^$' | head -1)
 
-            if [[ -z "$IMAGE" ]]; then
-              echo "No container image found. Please build and push an image first."
+            if [[ -z "$TAG" ]]; then
+              echo "No tagged container image found. Please build and push an image first."
               exit 1
             fi
 
-            IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:$IMAGE"
+            IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:$TAG"
           fi
 
           echo "container_image=$IMAGE" >> $GITHUB_OUTPUT
