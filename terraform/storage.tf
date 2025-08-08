@@ -58,7 +58,6 @@ resource "google_project_iam_member" "app_service_account_roles" {
     "roles/secretmanager.secretAccessor",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
-    "roles/trace.agent"
   ])
 
   project = var.project_id
