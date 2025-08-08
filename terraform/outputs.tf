@@ -40,7 +40,7 @@ output "environment" {
 
 output "mongodb_secret_id" {
   description = "Secret Manager secret ID for MongoDB URI"
-  value       = google_secret_manager_secret.mongodb_uri.secret_id
+  value       = data.google_secret_manager_secret.mongodb_uri.secret_id
 }
 
 output "gcs_service_account_key_secret_id" {
