@@ -170,9 +170,15 @@ jobs:
           if [[ "${{ needs.build.outputs.primary-tag }}" != "" ]]; then
             IMAGE="${{ needs.build.outputs.primary-tag }}"
           else
-            # Find the latest image that has tags (skip untagged images)
+            # Look for branch-specific tag first, then fall back to any tagged image
             TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-              --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -E '^[^[:space:]]+$' | head -1)
+              --filter="tags:${{ github.ref_name }}" --limit=1 --format='value(tags[0])')
+
+            if [[ -z "$TAG" ]]; then
+              # Fallback to any tagged image, sorted by digest (more reliable than timestamp)
+              TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
+                --filter="tags:*" --limit=1 --sort-by=~digest --format='value(tags[0])')
+            fi
 
             if [[ -z "$TAG" ]]; then
               echo "No tagged container image found. Please build and push an image first."

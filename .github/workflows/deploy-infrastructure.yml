@@ -67,9 +67,15 @@ jobs:
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] && [[ -n "${{ inputs.container_image }}" ]]; then
           IMAGE="${{ inputs.container_image }}"
         else
-          # Get the latest image from the registry
+          # Look for latest tag first, then branch-specific tag
           TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion \
-            --limit=10 --sort-by=~TIMESTAMP --format='value(tags[0])' | grep -E '^[^[:space:]]+$' | head -1)
+            --filter="tags:latest" --limit=1 --format='value(tags[0])')
+
+          if [[ -z "$TAG" ]]; then
+            # Fallback to any tagged image, sorted by digest (more reliable than timestamp)
+            TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/green-fashion \
+              --filter="tags:*" --limit=1 --sort-by=~digest --format='value(tags[0])')
+          fi
 
           if [[ -z "$TAG" ]]; then
             echo "No tagged container image found. Please build and push an image first."
