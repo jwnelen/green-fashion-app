@@ -78,4 +78,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE 8080
 
 # Start command
-CMD ["streamlit", "run", "streamlit_app/clothing_classifier.py"]
+CMD ["streamlit", "run", "streamlit_app/wardrobe_manager.py"]
