@@ -2,20 +2,21 @@
 Google Cloud Storage service for handling image operations.
 """
 
-import os
 import io
-from typing import Optional, Union
+import os
 from pathlib import Path
-from PIL import Image
+from typing import Optional, Union
+
 from google.cloud import storage
-from google.cloud.exceptions import NotFound, GoogleCloudError
+from google.cloud.exceptions import GoogleCloudError, NotFound
+from PIL import Image
 
 from .config import (
+    DATASET_IMAGES_PATH,
     GCS_CREDENTIALS_PATH,
     GCS_PROJECT_ID,
-    get_bucket_name,
     WARDROBE_IMAGES_PATH,
-    DATASET_IMAGES_PATH,
+    get_bucket_name,
 )
 
 
@@ -206,7 +207,7 @@ class GCSService:
         Prepare image data as bytes for upload.
 
         Args:
-            image: PIL Image, file path, or image data
+            image: PIL Image, file path, or uploaded file object
             quality: JPEG quality
 
         Returns:
@@ -217,8 +218,11 @@ class GCSService:
             img = Image.open(image)
         elif isinstance(image, Image.Image):
             img = image
+        elif hasattr(image, "read"):
+            # Handle file-like objects (e.g., Streamlit UploadedFile)
+            img = Image.open(image)
         else:
-            raise ValueError("Image must be PIL Image or file path")
+            raise ValueError("Image must be PIL Image, file path, or file-like object")
 
         # Convert to RGB if necessary
         if img.mode != "RGB":

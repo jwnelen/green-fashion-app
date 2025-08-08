@@ -14,7 +14,7 @@ Usage:
     items = wm.get_all_items()
 """
 
-from .wardrobe_manager import WardrobeManager
 from .data_loader import DataLoader
+from .mongodb_manager import MongoDBManager
 
-__all__ = ["WardrobeManager", "DataLoader"]
+__all__ = ["MongoDBManager", "DataLoader"]

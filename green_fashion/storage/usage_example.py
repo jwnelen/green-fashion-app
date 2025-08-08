@@ -3,7 +3,9 @@ Example usage of the GCS service for image operations.
 """
 
 from pathlib import Path
+
 from PIL import Image
+
 from .gcs_service import get_gcs_service
 
 

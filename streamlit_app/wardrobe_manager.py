@@ -1,57 +1,55 @@
-import os
+from typing import Dict, List
+
 import streamlit as st
-from PIL import Image
-from typing import List, Dict
 
-# Import from our green_fashion package
-from green_fashion.database import WardrobeManager, DataLoader
 from green_fashion.database.config import CLOTHING_CATEGORIES
+from green_fashion.database.mongodb_manager import MongoDBManager
+from green_fashion.storage.gcs_service import get_gcs_service
 
+# class StreamlitWardrobeManager(WardrobeManager):
+#     """Extended WardrobeManager with Streamlit-specific error handling."""
 
-class StreamlitWardrobeManager(WardrobeManager):
-    """Extended WardrobeManager with Streamlit-specific error handling."""
+#     def add_clothing_item(self, item_data):
+#         try:
+#             return super().add_clothing_item(item_data)
+#         except Exception as e:
+#             st.error(f"Error adding item: {str(e)}")
+#             return None
 
-    def add_clothing_item(self, item_data):
-        try:
-            return super().add_clothing_item(item_data)
-        except Exception as e:
-            st.error(f"Error adding item: {str(e)}")
-            return None
+#     def get_all_items(self):
+#         try:
+#             return super().get_all_items()
+#         except Exception as e:
+#             st.error(f"Error fetching items: {str(e)}")
+#             return []
 
-    def get_all_items(self):
-        try:
-            return super().get_all_items()
-        except Exception as e:
-            st.error(f"Error fetching items: {str(e)}")
-            return []
+#     def update_item(self, item_id, updates):
+#         try:
+#             return super().update_item(item_id, updates)
+#         except Exception as e:
+#             st.error(f"Error updating item: {str(e)}")
+#             return False
 
-    def update_item(self, item_id, updates):
-        try:
-            return super().update_item(item_id, updates)
-        except Exception as e:
-            st.error(f"Error updating item: {str(e)}")
-            return False
+#     def delete_item(self, item_id):
+#         try:
+#             return super().delete_item(item_id)
+#         except Exception as e:
+#             st.error(f"Error deleting item: {str(e)}")
+#             return False
 
-    def delete_item(self, item_id):
-        try:
-            return super().delete_item(item_id)
-        except Exception as e:
-            st.error(f"Error deleting item: {str(e)}")
-            return False
+#     def search_items(self, query):
+#         try:
+#             return super().search_items(query)
+#         except Exception as e:
+#             st.error(f"Error searching items: {str(e)}")
+#             return []
 
-    def search_items(self, query):
-        try:
-            return super().search_items(query)
-        except Exception as e:
-            st.error(f"Error searching items: {str(e)}")
-            return []
-
-    def save_uploaded_image(self, uploaded_file, category):
-        try:
-            return super().save_uploaded_image(uploaded_file, category)
-        except Exception as e:
-            st.error(f"Error saving image: {str(e)}")
-            return None
+#     def save_uploaded_image(self, uploaded_file, category):
+#         try:
+#             return super().save_uploaded_image(uploaded_file, category)
+#         except Exception as e:
+#             st.error(f"Error saving image: {str(e)}")
+#             return None
 
 
 @st.dialog("Confirm Delete")
@@ -103,42 +101,16 @@ def main():
     st.markdown("Manage your clothing collection with custom names and MongoDB storage")
 
     # Initialize wardrobe manager
-    wm = StreamlitWardrobeManager()
+    db = MongoDBManager()
 
     # Check database connection
-    if not wm.client:
+    if not db.client:
         st.error("❌ Failed to connect to MongoDB")
 
         # Show detailed error information
-        if hasattr(wm, "connection_error") and wm.connection_error:
+        if hasattr(db, "connection_error") and db.connection_error:
             with st.expander("🔍 Connection Error Details"):
-                st.code(wm.connection_error)
-
-                # Provide helpful suggestions based on error type
-                if "ServerSelectionTimeoutError" in wm.connection_error:
-                    st.warning("**Possible causes:**")
-                    st.write("• MongoDB server is not running")
-                    st.write("• Network connectivity issues")
-                    st.write("• Incorrect host/port in connection string")
-                elif "AuthenticationFailed" in wm.connection_error:
-                    st.warning("**Authentication Issue:**")
-                    st.write("• Check username/password in connection string")
-                    st.write("• Verify database user permissions")
-                elif "ConfigurationError" in wm.connection_error:
-                    st.warning("**Configuration Issue:**")
-                    st.write("• Check MONGODB_URI environment variable")
-                    st.write("• Verify connection string format")
-                else:
-                    st.warning("**General troubleshooting:**")
-                    st.write("• Check MONGODB_URI environment variable")
-                    st.write("• Ensure MongoDB is running and accessible")
-                    st.write("• Verify network connectivity")
-
-        st.info("**Next steps:**")
-        st.write("1. Check your MongoDB connection string")
-        st.write("2. Ensure MongoDB server is running")
-        st.write("3. Verify network connectivity")
-        st.write("4. Check authentication credentials")
+                st.code(db.connection_error)
 
         # Add retry button
         if st.button("🔄 Retry Connection"):
@@ -147,6 +119,10 @@ def main():
         st.stop()
     else:
         st.success("✅ Connected to MongoDB successfully!")
+
+    # Ensure wardrobe images directory exists
+    gcs = get_gcs_service()
+    st.write(gcs.bucket.name)
 
     # Sidebar for navigation
     st.sidebar.header("Navigation")
@@ -157,17 +133,18 @@ def main():
     if st.sidebar.button("👗 View Wardrobe", use_container_width=True):
         st.session_state.current_page = "View Wardrobe"
 
-    if st.sidebar.button("📥 Import from Dataset", use_container_width=True):
-        st.session_state.current_page = "Import from Dataset"
+    # if st.sidebar.button("📥 Import from Dataset", use_container_width=True):
+    #     st.session_state.current_page = "Import from Dataset"
 
-    if st.sidebar.button("🔍 Search Items", use_container_width=True):
-        st.session_state.current_page = "Search Items"
+    # if st.sidebar.button("🔍 Search Items", use_container_width=True):
+    #     st.session_state.current_page = "Search Items"
 
     if st.sidebar.button("➕ Add New Item", use_container_width=True):
         st.session_state.current_page = "Add New Item"
 
     action = st.session_state.current_page
 
+    # Only execute page logic for the current action to improve performance
     if action == "View Wardrobe":
         st.header("📦 Your Wardrobe")
 
@@ -175,7 +152,25 @@ def main():
         if "delete_confirmed" in st.session_state:
             item_id = st.session_state.delete_confirmed
             item_name = st.session_state.deleted_item_name
-            if wm.delete_item(item_id):
+
+            # First get the item to find its image path
+            item = None
+            all_items = db.get_all_items()
+            for i in all_items:
+                if i["_id"] == item_id:
+                    item = i
+                    break
+
+            if db.delete_item(item_id):
+                # Delete image from GCS if it exists
+                if item and item.get("path"):
+                    try:
+                        gcs.delete_image(item["path"])
+                    except Exception as e:
+                        st.warning(f"Failed to delete image from storage: {str(e)}")
+
+                # Refresh the cached items after deletion
+                st.session_state["refresh_items"] = True
                 st.session_state["delete_success"] = f"'{item_name}' deleted!"
             del st.session_state.delete_confirmed
             del st.session_state.deleted_item_name
@@ -186,7 +181,16 @@ def main():
             st.success(st.session_state["delete_success"])
             del st.session_state["delete_success"]
 
-        items = wm.get_all_items()
+        # Cache items in session state to avoid repeated DB calls
+        if (
+            "wardrobe_items" not in st.session_state
+            or "refresh_items" in st.session_state
+        ):
+            st.session_state.wardrobe_items = db.get_all_items()
+            if "refresh_items" in st.session_state:
+                del st.session_state.refresh_items
+
+        items = st.session_state.wardrobe_items
         if not items:
             st.info(
                 "Your wardrobe is empty. Import items from the dataset or add new ones!"
@@ -212,15 +216,29 @@ def main():
                 if i + j < len(items):
                     item = items[i + j]
                     with col:
-                        # Display image if exists
-                        if item.get("path") and os.path.exists(item["path"]):
-                            try:
-                                image = Image.open(item["path"])
-                                st.image(image, use_container_width=True)
-                            except Exception:
-                                st.write("🖼️ Image not available")
-                        else:
-                            st.write("🖼️ No image")
+                        # Display image with lazy loading using expander
+                        image_container = st.container()
+                        with image_container:
+                            if item.get("path"):
+                                # Cache loaded images in session state
+                                image_key = f"image_{item['_id']}"
+                                if image_key not in st.session_state:
+                                    try:
+                                        st.session_state[image_key] = gcs.load_image(
+                                            item["path"]
+                                        )
+                                    except Exception:
+                                        st.session_state[image_key] = None
+
+                                if st.session_state[image_key] is not None:
+                                    st.image(
+                                        st.session_state[image_key],
+                                        use_container_width=True,
+                                    )
+                                else:
+                                    st.write("🖼️ Image not available")
+                            else:
+                                st.write("🖼️ No image")
 
                         # Item details and editing
                         # Custom name input
@@ -263,7 +281,9 @@ def main():
                                     updates["category"] = new_category
 
                                 if updates:
-                                    if wm.update_item(item["_id"], updates):
+                                    if db.update_item(item["_id"], updates):
+                                        # Refresh the cached items after update
+                                        st.session_state["refresh_items"] = True
                                         st.session_state[
                                             f"success_msg_{item['_id']}"
                                         ] = "Changes saved!"
@@ -286,71 +306,71 @@ def main():
 
                         st.markdown("---")
 
-    elif action == "Import from Dataset":
-        st.header("📥 Import from Dataset")
+    # elif action == "Import from Dataset":
+    #     st.header("📥 Import from Dataset")
 
-        dataset_items = DataLoader.load_and_clean_dataset()
-        if not dataset_items:
-            st.error("No dataset items found or failed to load dataset.")
-            return
+    #     dataset_items = DataLoader.load_and_clean_dataset()
+    #     if not dataset_items:
+    #         st.error("No dataset items found or failed to load dataset.")
+    #         return
 
-        st.write(f"Found {len(dataset_items)} items in dataset")
+    #     st.write(f"Found {len(dataset_items)} items in dataset")
 
-        # Show preview
-        if st.checkbox("Show preview"):
-            preview_item = dataset_items[0] if dataset_items else {}
-            st.json(preview_item)
+    #     # Show preview
+    #     if st.checkbox("Show preview"):
+    #         preview_item = dataset_items[0] if dataset_items else {}
+    #         st.json(preview_item)
 
-        if st.button("Import All Items"):
-            progress_bar = st.progress(0)
+    #     if st.button("Import All Items"):
+    #         progress_bar = st.progress(0)
 
-            with st.spinner("Importing items..."):
-                imported_count = 0
-                for i, item in enumerate(dataset_items):
-                    # Use the database manager's method to check for existing items
-                    if wm.add_clothing_item(item):
-                        imported_count += 1
-                    progress_bar.progress((i + 1) / len(dataset_items))
+    #         with st.spinner("Importing items..."):
+    #             imported_count = 0
+    #             for i, item in enumerate(dataset_items):
+    #                 # Use the database manager's method to check for existing items
+    #                 if wm.add_clothing_item(item):
+    #                     imported_count += 1
+    #                 progress_bar.progress((i + 1) / len(dataset_items))
 
-            st.success(f"Successfully imported {imported_count} new items!")
-            if imported_count < len(dataset_items):
-                st.info(
-                    f"{len(dataset_items) - imported_count} items were already in the database or failed to import."
-                )
+    #         st.success(f"Successfully imported {imported_count} new items!")
+    #         if imported_count < len(dataset_items):
+    #             st.info(
+    #                 f"{len(dataset_items) - imported_count} items were already in the database or failed to import."
+    #             )
 
-    elif action == "Search Items":
-        st.header("🔍 Search Items")
+    # elif action == "Search Items":
+    #     st.header("🔍 Search Items")
 
-        search_query = st.text_input("Search by name, category, or filename:")
+    #     search_query = st.text_input("Search by name, category, or filename:")
 
-        if search_query:
-            results = wm.search_items(search_query)
-            st.write(f"Found {len(results)} items matching '{search_query}'")
+    #     if search_query:
+    #         results = wm.search_items(search_query)
+    #         st.write(f"Found {len(results)} items matching '{search_query}'")
 
-            for item in results:
-                with st.expander(
-                    f"{item.get('custom_name', item.get('display_name', 'Unnamed'))} - {item.get('category', 'Unknown')}"
-                ):
-                    col1, col2 = st.columns([1, 2])
+    #         for item in results:
+    #             with st.expander(
+    #                 f"{item.get('custom_name', item.get('display_name', 'Unnamed'))} - {item.get('category', 'Unknown')}"
+    #             ):
+    #                 col1, col2 = st.columns([1, 2])
 
-                    with col1:
-                        if item.get("path") and os.path.exists(item["path"]):
-                            try:
-                                image = Image.open(item["path"])
-                                st.image(image, width=200)
-                            except Exception:
-                                st.write("🖼️ Image not available")
+    #                 with col1:
+    #                     if item.get("path") and os.path.exists(item["path"]):
+    #                         try:
+    #                             image = Image.open(item["path"])
+    #                             st.image(image, width=200)
+    #                         except Exception:
+    #                             st.write("🖼️ Image not available")
 
-                    with col2:
-                        st.write(f"**Category:** {item.get('category', 'Unknown')}")
-                        st.write(
-                            f"**Body Section:** {item.get('body_section', 'Unknown')}"
-                        )
-                        st.write(f"**File:** {item.get('display_name', 'Unknown')}")
+    #                 with col2:
+    #                     st.write(f"**Category:** {item.get('category', 'Unknown')}")
+    #                     st.write(
+    #                         f"**Body Section:** {item.get('body_section', 'Unknown')}"
+    #                     )
+    #                     st.write(f"**File:** {item.get('display_name', 'Unknown')}")
 
-                        if item.get("colors"):
-                            st.write("**Colors:**")
-                            display_color_palette(item["colors"][:5])
+    #                     if item.get("colors"):
+    #                         st.write("**Colors:**")
+    #                         display_color_palette(item["colors"][:5])
 
     elif action == "Add New Item":
         st.header("➕ Add New Item")
@@ -381,7 +401,11 @@ def main():
                     # Handle file upload first
                     image_path = None
                     if uploaded_file:
-                        image_path = wm.save_uploaded_image(uploaded_file, category)
+                        image_path = gcs.save_image(
+                            image=uploaded_file,
+                            filename=custom_name.replace(" ", "_").lower(),
+                            category="wardrobe",
+                        )
                         if not image_path:
                             st.error("Failed to save image. Please try again.")
                             return
@@ -398,8 +422,10 @@ def main():
                         "path": image_path,
                     }
 
-                    result = wm.add_clothing_item(item_data)
+                    result = db.add_clothing_item(item_data)
                     if result:
+                        # Refresh the cached items after adding new item
+                        st.session_state["refresh_items"] = True
                         st.success("Item added successfully!")
                         if image_path:
                             st.success(f"Image saved to: {image_path}")
@@ -409,7 +435,7 @@ def main():
                         )
                         # Clean up image if item creation failed
                         if image_path:
-                            wm.delete_image_file(image_path)
+                            gcs.delete_image(image_path)
 
 
 if __name__ == "__main__":
