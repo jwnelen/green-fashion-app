@@ -236,7 +236,7 @@ jobs:
       - name: Get service URL and health check
         working-directory: ./terraform
         run: |
-          SERVICE_URL=$(terraform output -raw service_url)
+          SERVICE_URL=$(terraform output -raw api_url)
           echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
 
           echo "Waiting for service to be ready..."
