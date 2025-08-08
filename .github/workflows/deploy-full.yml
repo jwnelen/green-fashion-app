@@ -98,9 +98,9 @@ jobs:
         with:
           images: gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=sha,format=short           # Always first = primary tag
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value={{date 'YYYYMMDD-HHmm'}}
 
@@ -111,12 +111,12 @@ jobs:
           echo "JSON output:"
           echo '${{ steps.meta.outputs.json }}'
 
-      - name: Get primary tag
+      - name: Get primary tag (commit SHA)
         id: primary
         run: |
-          PRIMARY_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[0]')
-          echo "Primary tag: $PRIMARY_TAG"
-          echo "tag=$PRIMARY_TAG" >> $GITHUB_OUTPUT
+          SHA_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[] | select(test("^[0-9a-f]{7,}$"))' | head -n 1)
+          echo "Primary tag (SHA): $SHA_TAG"
+          echo "tag=$SHA_TAG" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         id: build
@@ -170,14 +170,19 @@ jobs:
           if [[ "${{ needs.build.outputs.primary-tag }}" != "" ]]; then
             IMAGE="${{ needs.build.outputs.primary-tag }}"
           else
-            # Look for branch-specific tag first, then fall back to any tagged image
             TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-              --filter="tags:${{ github.ref_name }}" --limit=1 --format='value(tags[0])')
+              --filter="tags:${{ github.ref_name }}" \
+              --limit=1 \
+              --sort-by=~timestamp \
+              --format='value(tags[0])')
+
 
             if [[ -z "$TAG" ]]; then
-              # Fallback to any tagged image, sorted by digest (more reliable than timestamp)
               TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
-                --filter="tags:*" --limit=1 --sort-by=~digest --format='value(tags[0])')
+                --filter="tags:*" \
+                --limit=1 \
+                --sort-by=~timestamp \
+                --format='value(tags[0])')
             fi
 
             if [[ -z "$TAG" ]]; then
