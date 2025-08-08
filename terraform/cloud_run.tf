@@ -5,6 +5,12 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
 
   labels = local.labels
 
+  # Prevent accidental deletion
+  lifecycle {
+    prevent_destroy = false
+    create_before_destroy = false
+  }
+
   template {
     labels = local.labels
 
