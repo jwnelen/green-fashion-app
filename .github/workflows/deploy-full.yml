@@ -135,8 +135,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           docker pull ${{ steps.primary.outputs.tag }}
-          docker run --rm -d -p 8000:8000 --name test-container ${{ steps.primary.outputs.tag }}
-          sleep 30
+          docker run --rm -d -p 8000:8000 --name test-container -e MONGODB_URI="${{ secrets.MONGODB_URI }}" ${{ steps.primary.outputs.tag }}
+          echo "Waiting for container to start..."
+          sleep 60
+          echo "Checking container logs:"
+          docker logs test-container
+          echo "Testing health endpoint:"
           curl -f http://localhost:8000/health || exit 1
           docker stop test-container
 
