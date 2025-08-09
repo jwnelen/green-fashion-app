@@ -17,5 +17,5 @@ repos:
     - id: uv-lock
       always_run: true
     - id: uv-export
-      args: ["--no-hashes", "--frozen", "--output-file=requirements.txt"]
+      args: ["--no-hashes", "--frozen", "--no-emit-project", "--output-file=requirements.txt"]
       always_run: true
