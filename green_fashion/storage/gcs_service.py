@@ -170,6 +170,19 @@ class GCSService:
         except Exception:
             return False
 
+    def get_public_url(self, gcs_path: str) -> str:
+        """
+        Get the public URL for a GCS object.
+
+        Args:
+            gcs_path: GCS path of the image
+
+        Returns:
+            str: Public URL of the image
+        """
+        blob = self.bucket.blob(gcs_path)
+        return blob.public_url
+
     def list_images(
         self, category: str = "wardrobe", prefix: Optional[str] = None
     ) -> list[str]:
