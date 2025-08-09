@@ -3,7 +3,9 @@ from typing import Dict, List, Optional
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import io
 
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
@@ -217,6 +219,28 @@ async def upload_image(item_id: str, file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/images/{image_path:path}")
+async def get_image(image_path: str):
+    """Serve images from Google Cloud Storage"""
+    try:
+        # Load image from GCS
+        image = gcs_service.load_image(image_path)
+
+        # Convert PIL image to bytes
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format="JPEG", quality=95)
+        img_byte_arr.seek(0)
+
+        # Return as streaming response
+        return StreamingResponse(
+            io.BytesIO(img_byte_arr.getvalue()),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "max-age=3600"},  # Cache for 1 hour
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
 
 
 if __name__ == "__main__":
