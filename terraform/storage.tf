@@ -8,13 +8,13 @@ resource "google_storage_bucket" "images_bucket" {
 
   # Versioning
   versioning {
-    enabled = var.environment == "prod" ? true : false
+    enabled = var.bucket_versioning_enabled
   }
 
   # Lifecycle management
   lifecycle_rule {
     condition {
-      age = var.environment == "dev" ? 30 : 365
+      age = var.bucket_lifecycle_age_days
     }
     action {
       type = "Delete"
@@ -32,10 +32,7 @@ resource "google_storage_bucket" "images_bucket" {
   # Uniform bucket-level access
   uniform_bucket_level_access = true
 
-  # Prevent accidental deletion in production
-  lifecycle {
-    prevent_destroy = false # Set to true for production
-  }
+  # Note: For production, manually set prevent_destroy = true in lifecycle block
 }
 
 # Service account for application

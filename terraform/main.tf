@@ -9,7 +9,9 @@ terraform {
 
   backend "gcs" {
     bucket  = "green-fashion-terraform-state"
-    prefix  = "environments/dev"
+    # prefix will be set via terraform init with -backend-config
+    # For dev: terraform init -backend-config="prefix=environments/dev"
+    # For prod: terraform init -backend-config="prefix=environments/prod"
   }
 }
 

@@ -82,3 +82,15 @@ variable "enable_cdn" {
   type        = bool
   default     = false
 }
+
+variable "bucket_versioning_enabled" {
+  description = "Enable versioning on storage buckets"
+  type        = bool
+  default     = false
+}
+
+variable "bucket_lifecycle_age_days" {
+  description = "Age in days for bucket lifecycle deletion"
+  type        = number
+  default     = 365
+}

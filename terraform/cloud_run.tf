@@ -7,11 +7,7 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
 
   labels = local.labels
 
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = false
-    create_before_destroy = false
-  }
+  # Note: For production, manually set prevent_destroy = true in lifecycle block
 
   template {
     labels = local.labels
@@ -50,13 +46,8 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
       }
 
       env {
-        name  = "GCS_BUCKET_DEV"
-        value = "${local.service_name}-dev-images"
-      }
-
-      env {
-        name  = "GCS_BUCKET_PROD"
-        value = "${local.service_name}-prod-images"
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.images_bucket.name
       }
 
       # MongoDB URI from Secret Manager
