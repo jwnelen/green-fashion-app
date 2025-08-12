@@ -232,13 +232,15 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [changes, build]
+    needs: [changes, build-green-fashion, build-classifier-api]
     if: |
       always() &&
       github.event_name != 'pull_request' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.build-green-fashion.result == 'success' || needs.build-green-fashion.result == 'skipped') &&
+      (needs.build-classifier-api.result == 'success' || needs.build-classifier-api.result == 'skipped') &&
       (needs.changes.outputs.infrastructure == 'true' ||
        needs.changes.outputs.application == 'true' ||
+       needs.changes.outputs.classifier_api == 'true' ||
        inputs.force_infrastructure == true)
     environment:
       name: ${{ needs.changes.outputs.environment }}
