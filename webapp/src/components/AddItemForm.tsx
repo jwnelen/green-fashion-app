@@ -4,8 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { api } from '../lib/api';
+import {classifierAPI } from '../lib/classifier_api'
+
 import type { ClothingItem } from '../lib/api';
-import { CLOTHING_CATEGORIES, BODY_SECTIONS } from '../lib/constants';
+import { CLOTHING_CATEGORIES, BODY_SECTIONS, type ClothingCategory } from '../lib/constants';
 import { Upload, Plus } from 'lucide-react';
 
 interface AddItemFormProps {
@@ -13,7 +15,12 @@ interface AddItemFormProps {
 }
 
 export function AddItemForm({ onItemAdded }: AddItemFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    custom_name: string;
+    category: ClothingCategory;
+    body_section: number;
+    notes: string;
+  }>({
     custom_name: '',
     category: CLOTHING_CATEGORIES[0],
     body_section: BODY_SECTIONS[0].value,
@@ -23,6 +30,9 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [classificationResult, setClassificationResult] = useState<string | null>(null);
+
+  // classifierAPI.healthCheck().then(s => console.log(s))
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -32,12 +42,33 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
     setError(null);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type.startsWith('image/')) {
         setSelectedFile(file);
         setError(null);
+        setClassificationResult(null);
+
+        try {
+          const result = await classifierAPI.classifyImage(file);
+          const classifiedCategory = result.message.toLowerCase();
+
+          // Check if the classified category exists in our categories list
+          if (CLOTHING_CATEGORIES.includes(classifiedCategory as ClothingCategory)) {
+            setClassificationResult(classifiedCategory);
+            // Automatically select the classified category
+            setFormData(prev => ({
+              ...prev,
+              category: classifiedCategory as ClothingCategory
+            }));
+          } else {
+            setClassificationResult(classifiedCategory);
+          }
+        } catch (classificationError) {
+          console.warn('Classification failed:', classificationError);
+        }
+
       } else {
         setError('Please select a valid image file');
         setSelectedFile(null);
@@ -55,6 +86,7 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
     setSelectedFile(null);
     setError(null);
     setSuccess(null);
+    setClassificationResult(null);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -129,6 +161,11 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
               <label htmlFor="category" className="text-sm font-medium">
                 Category *
               </label>
+              {classificationResult && (
+                <div className="p-2 rounded-md bg-blue-50 text-blue-700 text-sm">
+                  ✨ Classified as "{classificationResult}"
+                </div>
+              )}
               <Select
                 id="category"
                 value={formData.category}

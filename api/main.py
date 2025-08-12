@@ -1,3 +1,4 @@
+import io
 from typing import Dict, List, Optional
 
 import uvicorn
@@ -5,7 +6,6 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import io
 
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
