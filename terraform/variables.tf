@@ -36,6 +36,12 @@ variable "container_image" {
   default     = "gcr.io/PROJECT_ID/green-fashion:latest"
 }
 
+variable "classifier_api_container_image" {
+  description = "Container image URL for Classifier API Cloud Run"
+  type        = string
+  default     = "gcr.io/PROJECT_ID/classifier-api:latest"
+}
+
 variable "min_instances" {
   description = "Minimum number of Cloud Run instances"
   type        = number

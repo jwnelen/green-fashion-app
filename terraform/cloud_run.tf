@@ -118,19 +118,108 @@ resource "google_cloud_run_service_iam_member" "public_access" {
   member   = "allUsers"
 }
 
-# Custom domain mapping (optional)
-resource "google_cloud_run_domain_mapping" "custom_domain" {
-  count = var.custom_domain != "" ? 1 : 0
-
+# Cloud Run service for the Classifier API
+resource "google_cloud_run_v2_service" "classifier_api" {
+  name     = "classifier-api-${var.environment}"
   location = var.region
-  name     = var.custom_domain
 
-  metadata {
-    namespace = var.project_id
-    labels    = local.labels
+  deletion_protection = false
+
+  labels = local.labels
+
+  template {
+    labels = local.labels
+
+    # Service account
+    service_account = google_service_account.app_service_account.email
+
+    # Scaling configuration
+    scaling {
+      min_instance_count = var.min_instances
+      max_instance_count = var.max_instances
+    }
+
+    containers {
+      image = var.classifier_api_container_image
+
+      # Resource allocation
+      resources {
+        limits = {
+          cpu    = var.cpu
+          memory = var.memory
+        }
+        cpu_idle                = true
+        startup_cpu_boost       = true
+      }
+
+      # Environment variables
+      env {
+        name  = "ENVIRONMENT"
+        value = var.environment
+      }
+
+      env {
+        name  = "GCS_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.images_bucket.name
+      }
+
+      # Ports
+      ports {
+        container_port = 8001
+      }
+
+      # Health check
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8001
+        }
+        initial_delay_seconds = 30
+        timeout_seconds       = 10
+        period_seconds        = 10
+        failure_threshold     = 3
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8001
+        }
+        initial_delay_seconds = 30
+        timeout_seconds       = 10
+        period_seconds        = 30
+        failure_threshold     = 3
+      }
+    }
+
+    # Execution environment
+    execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
+    timeout               = "300s"
   }
 
-  spec {
-    route_name = google_cloud_run_v2_service.green_fashion_api.name
+  # Traffic configuration
+  traffic {
+    percent = 100
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_storage_bucket.images_bucket
+  ]
+}
+
+# IAM policy for classifier API public access
+resource "google_cloud_run_service_iam_member" "classifier_api_public_access" {
+  count = var.allowed_ingress == "all" ? 1 : 0
+
+  location = google_cloud_run_v2_service.classifier_api.location
+  service  = google_cloud_run_v2_service.classifier_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
