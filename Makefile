@@ -4,6 +4,9 @@ start_streamlit:
 start_streamlit_matcher:
 	uv run -- streamlit run streamlit_app/matcher.py
 
+start_classifier:
+	uv run uvicorn "classifier_api.main:app" --port "8001" --workers 1
+
 create_kernel:
 	uv run -- python -m ipykernel install --user --env VIRTUAL_ENV $(pwd)/.venv --name=green-fashion
 # 	uv run ipython kernel install --user --env VIRTUAL_ENV $(pwd)/.venv --name=project

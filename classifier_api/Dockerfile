@@ -1,4 +1,4 @@
-# Multi-stage build for Green Fashion API
+# Multi-stage build for Green Fashion Classifier API
 FROM python:3.13-slim as builder
 
 # Set build arguments
@@ -22,8 +22,8 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies using uv
-RUN uv sync --frozen --no-dev
+# Install Python dependencies using uv with classifier group
+RUN uv sync --frozen --no-dev --group classifier
 
 # Production stage
 FROM python:3.13-slim
@@ -45,7 +45,11 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy application code
 COPY --chown=app:app green_fashion/ ./green_fashion/
-COPY --chown=app:app api/ ./api/
+COPY --chown=app:app classifier_api/ ./classifier_api/
+
+# Create cache directories with proper ownership
+RUN mkdir -p /app/.cache/torch /app/.cache/huggingface && \
+    chown -R app:app /app/.cache
 
 # Switch to non-root user
 USER app
@@ -53,7 +57,10 @@ USER app
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PATH="/app/.venv/bin:$PATH"
-ENV PORT=8000
+ENV PORT=8001
+ENV TORCH_HOME=/app/.cache/torch
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -63,4 +70,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE ${PORT}
 
 # Start command
-CMD ["sh", "-c", "python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "python -m uvicorn classifier_api.main:app --host 0.0.0.0 --port ${PORT}"]

@@ -36,6 +36,12 @@ variable "container_image" {
   default     = "gcr.io/PROJECT_ID/green-fashion:latest"
 }
 
+variable "classifier_api_container_image" {
+  description = "Container image URL for Classifier API Cloud Run"
+  type        = string
+  default     = "gcr.io/PROJECT_ID/classifier-api:latest"
+}
+
 variable "min_instances" {
   description = "Minimum number of Cloud Run instances"
   type        = number
@@ -81,4 +87,16 @@ variable "enable_cdn" {
   description = "Enable Cloud CDN for static assets"
   type        = bool
   default     = false
+}
+
+variable "bucket_versioning_enabled" {
+  description = "Enable versioning on storage buckets"
+  type        = bool
+  default     = false
+}
+
+variable "bucket_lifecycle_age_days" {
+  description = "Age in days for bucket lifecycle deletion"
+  type        = number
+  default     = 365
 }
