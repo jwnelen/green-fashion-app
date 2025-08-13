@@ -257,21 +257,21 @@ jobs:
         with:
           terraform_version: 1.6.0
 
-      - name: Determine container image
-        id: image
+      - name: Determine container images
+        id: images
         run: |
-          if [[ "${{ needs.build.outputs.primary-tag }}" != "" ]]; then
-            IMAGE="${{ needs.build.outputs.primary-tag }}"
+          # Green Fashion API image
+          if [[ "${{ needs.build-green-fashion.outputs.primary-tag }}" != "" ]]; then
+            GREEN_FASHION_IMAGE="${{ needs.build-green-fashion.outputs.primary-tag }}"
           else
-            TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
+            TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.GREEN_FASHION_IMAGE_NAME }} \
               --filter="tags:${{ github.ref_name }}" \
               --limit=1 \
               --sort-by=~timestamp \
               --format='value(tags[0])')
 
-
             if [[ -z "$TAG" ]]; then
-              TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }} \
+              TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.GREEN_FASHION_IMAGE_NAME }} \
                 --filter="tags:*" \
                 --limit=1 \
                 --sort-by=~timestamp \
@@ -279,14 +279,41 @@ jobs:
             fi
 
             if [[ -z "$TAG" ]]; then
-              echo "No tagged container image found. Please build and push an image first."
+              echo "No tagged green fashion image found. Please build and push an image first."
               exit 1
             fi
 
-            IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:$TAG"
+            GREEN_FASHION_IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.GREEN_FASHION_IMAGE_NAME }}:$TAG"
           fi
 
-          echo "container_image=$IMAGE" >> $GITHUB_OUTPUT
+          # Classifier API image
+          if [[ "${{ needs.build-classifier-api.outputs.primary-tag }}" != "" ]]; then
+            CLASSIFIER_API_IMAGE="${{ needs.build-classifier-api.outputs.primary-tag }}"
+          else
+            TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLASSIFIER_API_IMAGE_NAME }} \
+              --filter="tags:${{ github.ref_name }}" \
+              --limit=1 \
+              --sort-by=~timestamp \
+              --format='value(tags[0])')
+
+            if [[ -z "$TAG" ]]; then
+              TAG=$(gcloud container images list-tags gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLASSIFIER_API_IMAGE_NAME }} \
+                --filter="tags:*" \
+                --limit=1 \
+                --sort-by=~timestamp \
+                --format='value(tags[0])')
+            fi
+
+            if [[ -z "$TAG" ]]; then
+              echo "No tagged classifier API image found. Please build and push an image first."
+              exit 1
+            fi
+
+            CLASSIFIER_API_IMAGE="gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLASSIFIER_API_IMAGE_NAME }}:$TAG"
+          fi
+
+          echo "green_fashion_image=$GREEN_FASHION_IMAGE" >> $GITHUB_OUTPUT
+          echo "classifier_api_image=$CLASSIFIER_API_IMAGE" >> $GITHUB_OUTPUT
 
       - name: Terraform init
         working-directory: ./terraform
