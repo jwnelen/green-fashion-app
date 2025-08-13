@@ -14,5 +14,5 @@ create_kernel:
 run-api:
 	cd services/api && VIRTUAL_ENV="" uv run uvicorn src.main:app --reload
 
-run-ml:
-	cd services/ml-api && uv run uvicorn src.main:app --port 8001 --reload
+run-classifier:
+	cd services/classifier_api && VIRTUAL_ENV="" uv run uvicorn src.main:app --port 8001 --reload
