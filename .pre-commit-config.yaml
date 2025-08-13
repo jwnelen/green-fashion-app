@@ -19,8 +19,8 @@ repos:
     # Common package
     - id: uv-lock
       name: uv-lock-common
-      files: ^packages/common-python/
-      args: [--project, packages/common-python]
+      files: ^packages/green_fashion/
+      args: [--project, packages/green_fashion]
 
     # API service
     - id: uv-lock

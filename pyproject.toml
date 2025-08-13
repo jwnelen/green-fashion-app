@@ -1,5 +1,5 @@
 [project]
-name = "monorepo-dev"
+name = "green-fashion-monorepo"
 version = "0.1.0"
 requires-python = ">=3.11"
 
@@ -9,6 +9,7 @@ dev-dependencies = [
     "ruff>=0.5.6",
 ]
 
+
 [tool.ruff]
 extend-exclude = ["packages/*/build", "services/*/build"]
-src = ["packages/common-python/src", "services/api/src", "services/ml-api/src"]
+src = ["packages/green_fashion", "services/api/src", "services/classifier_api/src"]
