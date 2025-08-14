@@ -16,18 +16,17 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app
 
-# Set working directory
-WORKDIR /app
+# Set working directory to mimic project structure
+WORKDIR /project/services/classifier_api
 
-# Create directory structure for local dependencies
-RUN mkdir -p ../packages
-COPY packages/ ../packages/
+# Copy packages directory to project root
+COPY packages/ /project/packages/
 
 # Copy dependency files
 COPY services/classifier_api/pyproject.toml services/classifier_api/uv.lock ./
 
-# Install Python dependencies using uv with classifier group
-RUN uv sync --frozen --no-dev --group classifier
+# Install Python dependencies using uv
+RUN uv sync --frozen --no-dev
 
 # Production stage
 FROM python:3.13-slim
@@ -41,33 +40,32 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash --uid 1000 app
 
-# Set working directory
-WORKDIR /app
+# Set working directory to mimic project structure
+WORKDIR /project/services/classifier_api
 
 # Copy Python virtual environment from builder stage
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /project/services/classifier_api/.venv ./.venv
 
-# Create directory structure for local dependencies
-RUN mkdir -p ../packages
-COPY --chown=app:app packages/ ../packages/
+# Copy packages directory to project root
+COPY --chown=app:app packages/ /project/packages/
 
 # Copy application code
 COPY --chown=app:app services/classifier_api/src/ ./src/
 
 # Create cache directories with proper ownership
-RUN mkdir -p /app/.cache/torch /app/.cache/huggingface && \
-    chown -R app:app /app/.cache
+RUN mkdir -p /project/.cache/torch /project/.cache/huggingface && \
+    chown -R app:app /project/.cache
 
 # Switch to non-root user
 USER app
 
 # Set environment variables
-ENV PYTHONPATH=/app
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/project
+ENV PATH="/project/services/classifier_api/.venv/bin:$PATH"
 ENV PORT=8001
-ENV TORCH_HOME=/app/.cache/torch
-ENV HF_HOME=/app/.cache/huggingface
-ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
+ENV TORCH_HOME=/project/.cache/torch
+ENV HF_HOME=/project/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/project/.cache/huggingface
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

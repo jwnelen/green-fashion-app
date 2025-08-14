@@ -16,12 +16,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app
 
-# Set working directory
-WORKDIR /app
+# Set working directory to mimic project structure
+WORKDIR /project/services/api
 
-# Create directory structure for local dependencies
-RUN mkdir -p ../packages
-COPY packages/ ../packages/
+# Copy packages directory to project root
+COPY packages/ /project/packages/
 
 # Copy dependency files
 COPY services/api/pyproject.toml services/api/uv.lock ./
@@ -41,15 +40,14 @@ RUN apt-get update && apt-get install -y \
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash --uid 1000 app
 
-# Set working directory
-WORKDIR /app
+# Set working directory to mimic project structure
+WORKDIR /project/services/api
 
 # Copy Python virtual environment from builder stage
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /project/services/api/.venv ./.venv
 
-# Create directory structure for local dependencies
-RUN mkdir -p ../packages
-COPY --chown=app:app packages/ ../packages/
+# Copy packages directory to project root
+COPY --chown=app:app packages/ /project/packages/
 
 # Copy application code
 COPY --chown=app:app services/api/src/ ./src/
@@ -58,8 +56,8 @@ COPY --chown=app:app services/api/src/ ./src/
 USER app
 
 # Set environment variables
-ENV PYTHONPATH=/app
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/project
+ENV PATH="/project/services/api/.venv/bin:$PATH"
 ENV PORT=8000
 
 # Health check
