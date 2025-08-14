@@ -1,42 +1,15 @@
 [project]
-name = "green-fashion"
+name = "green-fashion-monorepo"
 version = "0.1.0"
-description = "AI-powered fashion outfit matching and wardrobe management system"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 
-dependencies = [
-    "pillow>=11.3.0",
-    "pre-commit>=4.2.0",
-    "pymongo>=4.13.2",
-    "python-dotenv>=1.1.1",
-    "google-cloud-storage>=2.18.0",
-    "fastapi>=0.116.1",
-    "uvicorn[standard]>=0.35.0",
-    "python-multipart>=0.0.20",
+[tool.uv]
+dev-dependencies = [
+    "pre-commit>=3.5.0",
+    "ruff>=0.5.6",
 ]
 
-[dependency-groups]
-classifier = [
-    "torch>=2.7.1",
-    "torchvision>=0.22.1",
-    "transformers>=4.53.2",
-]
-dev = [
-    "ipykernel>=6.29.5",
-    "watchdog>=6.0.0",
-    "transformers>=4.53.2",
-    "torch>=2.7.1,<3.0.0",
-    "streamlit>=1.46.1",
-    "matplotlib>=3.10.3",
-    "make>=0.1.6.post2",
-    "scikit-learn>=1.7.0",
 
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-
-[tool.hatch.build.targets.wheel]
-packages = ["green_fashion"]
+[tool.ruff]
+extend-exclude = ["packages/*/build", "services/*/build"]
+src = ["packages/green_fashion", "services/api/src", "services/classifier_api/src"]
