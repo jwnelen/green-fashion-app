@@ -19,11 +19,12 @@ RUN useradd --create-home --shell /bin/bash app
 # Set working directory
 WORKDIR /app
 
+# Create directory structure for local dependencies
+RUN mkdir -p ../packages
+COPY packages/ ../packages/
+
 # Copy dependency files
 COPY services/api/pyproject.toml services/api/uv.lock ./
-
-# Copy packages directory for local dependencies
-COPY packages/ ./packages/
 
 # Install Python dependencies using uv
 RUN uv sync --frozen --no-dev
@@ -46,8 +47,9 @@ WORKDIR /app
 # Copy Python virtual environment from builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-# Copy packages directory for local dependencies
-COPY --chown=app:app packages/ ./packages/
+# Create directory structure for local dependencies
+RUN mkdir -p ../packages
+COPY --chown=app:app packages/ ../packages/
 
 # Copy application code
 COPY --chown=app:app services/api/src/ ./src/
