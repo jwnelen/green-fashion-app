@@ -1,0 +1,107 @@
+# │   │   ├── ci.yml                # Continuous Integration
+# │   │   ├── deploy-dev.yml        # Deploy to dev environment
+# │   │   ├── deploy-prod.yml       # Deploy to prod environment
+# │   │   ├── frontend-deploy.yml   # Frontend specific deployment
+# │   │   ├── api-deploy.yml        # API deployment workflow
+# │   │   └── ml-api-deploy.yml     # ML API deployment workflow
+
+name: 'Terraform Apply'
+description: 'Run Terraform plan and apply for infrastructure changes'
+
+inputs:
+  environment:
+    description: 'Environment to deploy (dev/prod)'
+    required: true
+  terraform-version:
+    description: 'Terraform version to use'
+    required: false
+    default: '1.5.7'
+  working-directory:
+    description: 'Working directory for Terraform'
+    required: true
+  apply:
+    description: 'Whether to apply changes (true) or just plan (false)'
+    required: false
+    default: 'false'
+  var-file:
+    description: 'Path to terraform.tfvars file'
+    required: false
+  additional-vars:
+    description: 'Additional Terraform variables as JSON'
+    required: false
+    default: '{}'
+
+outputs:
+  plan-output:
+    description: 'Terraform plan output'
+    value: ${{ steps.plan.outputs.stdout }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ env.GCP_CREDENTIALS }}
+
+    - name: Terraform Init
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+          GOOGLE_CREDENTIALS: ${{ env.GCP_CREDENTIALS }}
+      run: |
+        terraform init \
+          -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
+          -backend-config="prefix=${{ inputs.environment }}"
+
+    - name: Terraform Format Check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform fmt -check -recursive
+      continue-on-error: true
+
+    - name: Terraform Validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: terraform validate
+
+    - name: Parse additional variables
+      id: vars
+      shell: bash
+      run: |
+        echo '${{ inputs.additional-vars }}' | jq -r 'to_entries[] | "-var \(.key)=\(.value)"' > /tmp/tf-vars.txt
+        echo "args=$(cat /tmp/tf-vars.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+    - name: Terraform Plan
+      id: plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        PLAN_ARGS=""
+        if [ -n "${{ inputs.var-file }}" ]; then
+          PLAN_ARGS="-var-file=${{ inputs.var-file }}"
+        fi
+
+        terraform plan \
+          $PLAN_ARGS \
+          ${{ steps.vars.outputs.args }} \
+          -out=tfplan \
+          -input=false
+
+    - name: Upload Plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan-${{ inputs.environment }}-${{ github.sha }}
+        path: ${{ inputs.working-directory }}/tfplan
+
+    - name: Terraform Apply
+      if: inputs.apply == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform apply tfplan
