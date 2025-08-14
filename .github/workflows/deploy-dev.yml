@@ -59,8 +59,10 @@ jobs:
           apply: 'true'
           additional-vars: |
             {
-              "api_image": "${{ needs.build-api.outputs.image-url }}",
-              "classifier_api_image": "${{ needs.build-classifier-api.outputs.image-url }}"
+              "project_id": "${{ env.GCP_PROJECT_ID }}",
+              "environment": "dev",
+              "container_image": "${{ needs.build-api.outputs.image-url }}",
+              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs.image-url }}"
             }
 
   deploy-services:
