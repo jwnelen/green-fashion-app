@@ -94,7 +94,7 @@ runs:
           -input=false
 
     - name: Upload Plan
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: terraform-plan-${{ inputs.environment }}-${{ github.sha }}
         path: ${{ inputs.working-directory }}/tfplan
