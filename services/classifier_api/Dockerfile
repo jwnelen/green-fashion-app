@@ -22,6 +22,9 @@ WORKDIR /app
 # Copy dependency files
 COPY services/classifier_api/pyproject.toml services/classifier_api/uv.lock ./
 
+# Copy packages directory for local dependencies
+COPY packages/ ./packages/
+
 # Install Python dependencies using uv with classifier group
 RUN uv sync --frozen --no-dev --group classifier
 
@@ -42,6 +45,9 @@ WORKDIR /app
 
 # Copy Python virtual environment from builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+
+# Copy packages directory for local dependencies
+COPY --chown=app:app packages/ ./packages/
 
 # Copy application code
 COPY --chown=app:app services/classifier_api/src/ ./src/
