@@ -28,26 +28,26 @@ jobs:
           gcp-project-id: ${{ env.GCP_PROJECT_ID }}
           environment: dev
 
-  build-ml-api:
+  build-classifier-api:
     runs-on: ubuntu-latest
     outputs:
       image-url: ${{ steps.build.outputs.image-url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and Push ML API Docker Image
+      - name: Build and Push Classifier API Docker Image
         id: build
         uses: ./.github/actions/build-docker
         with:
-          service-name: ml-api
-          dockerfile-path: services/ml-api/Dockerfile
+          service-name: classifier-api
+          dockerfile-path: services/classifier_api/Dockerfile
           context-path: .
           gcp-project-id: ${{ env.GCP_PROJECT_ID }}
           environment: dev
 
   deploy-infrastructure:
     runs-on: ubuntu-latest
-    needs: [build-api, build-ml-api]
+    needs: [build-api, build-classifier-api]
     steps:
       - uses: actions/checkout@v4
 
@@ -60,12 +60,12 @@ jobs:
           additional-vars: |
             {
               "api_image": "${{ needs.build-api.outputs.image-url }}",
-              "ml_api_image": "${{ needs.build-ml-api.outputs.image-url }}"
+              "classifier_api_image": "${{ needs.build-classifier-api.outputs.image-url }}"
             }
 
   deploy-services:
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, build-api, build-ml-api]
+    needs: [deploy-infrastructure, build-api, build-classifier-api]
     steps:
       - uses: actions/checkout@v4
 
@@ -83,13 +83,13 @@ jobs:
             --allow-unauthenticated \
             --service-account=api-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
 
-      - name: Deploy ML API to Cloud Run
+      - name: Deploy Classifier API to Cloud Run
         run: |
-          gcloud run deploy ml-api-dev \
-            --image=${{ needs.build-ml-api.outputs.image-url }} \
+          gcloud run deploy classifier-api-dev \
+            --image=${{ needs.build-classifier-api.outputs.image-url }} \
             --region=us-central1 \
             --platform=managed \
             --allow-unauthenticated \
             --cpu=2 \
             --memory=4Gi \
-            --service-account=ml-api-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+            --service-account=classifier-api-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com

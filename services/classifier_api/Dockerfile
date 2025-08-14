@@ -20,7 +20,7 @@ RUN useradd --create-home --shell /bin/bash app
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY services/classifier_api/pyproject.toml services/classifier_api/uv.lock ./
 
 # Install Python dependencies using uv with classifier group
 RUN uv sync --frozen --no-dev --group classifier
@@ -44,8 +44,7 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy application code
-COPY --chown=app:app green_fashion/ ./green_fashion/
-COPY --chown=app:app classifier_api/ ./classifier_api/
+COPY --chown=app:app services/classifier_api/src/ ./src/
 
 # Create cache directories with proper ownership
 RUN mkdir -p /app/.cache/torch /app/.cache/huggingface && \
@@ -70,4 +69,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE ${PORT}
 
 # Start command
-CMD ["sh", "-c", "python -m uvicorn classifier_api.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT}"]
