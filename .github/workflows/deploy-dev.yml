@@ -8,7 +8,7 @@ on:
 env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS_DEV }}
-  TF_STATE_BUCKET: my-terraform-state-dev
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_DEV }}
 
 jobs:
   build-api:
