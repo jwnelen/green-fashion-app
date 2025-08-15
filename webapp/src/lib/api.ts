@@ -33,11 +33,20 @@ class ApiService {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
 
+    // Get token from sessionStorage for authenticated requests
+    const token = sessionStorage.getItem('googleToken');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    // Add Bearer token if available
+    if (token) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     });
 
@@ -97,8 +106,17 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
+    // Get token for authenticated upload
+    const token = sessionStorage.getItem('googleToken');
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}/items/${itemId}/upload-image`, {
       method: 'POST',
+      headers,
       body: formData,
     });
 
@@ -108,6 +126,15 @@ class ApiService {
     }
 
     return response.json();
+  }
+
+  async addUserToDataBase(credentialResponse: { credential?: string }): Promise<{ token: string; user: { id: string; email: string; name: string; picture?: string } }> {
+    return this.request(`/api/auth/google`, {
+      method: 'POST',
+      body: JSON.stringify({
+        token: credentialResponse.credential
+      })
+    });
   }
 
   async healthCheck(): Promise<{ status: string; database: string }> {
