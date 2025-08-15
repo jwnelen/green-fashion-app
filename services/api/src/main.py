@@ -1,10 +1,17 @@
 import io
+import os
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+import jwt
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from pydantic import BaseModel
 
 from green_fashion.database.mongodb_manager import MongoDBManager
@@ -23,6 +30,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGODB_URI")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 
 # Pydantic models
@@ -44,9 +57,26 @@ class UpdateClothingItem(BaseModel):
     colors: Optional[List[Dict]] = None
 
 
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    picture: Optional[str] = None
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserResponse
+
+
 # Initialize database connection
-db_manager = MongoDBManager()
+db_manager = MongoDBManager(MONGO_URI)
 gcs_service = get_gcs_service()
+security = HTTPBearer()
 
 
 @app.get("/")
@@ -219,6 +249,51 @@ async def upload_image(item_id: str, file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/auth/google", response_model=AuthResponse)
+async def google_auth(auth_request: GoogleAuthRequest):
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            auth_request.token, requests.Request(), GOOGLE_CLIENT_ID
+        )
+
+        if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
+            raise HTTPException(status_code=401, detail="Invalid token issuer")
+
+        user = db_manager.create_or_get_user(
+            {
+                "google_id": idinfo["sub"],
+                "email": idinfo["email"],
+                "name": idinfo["name"],
+                "picture": idinfo.get("picture"),
+            }
+        )
+
+        jwt_token = jwt.encode(
+            {
+                "user_id": str(user["_id"]),
+                "email": user["email"],
+                "exp": datetime.utcnow() + timedelta(days=7),
+            },
+            SECRET_KEY,
+            algorithm="HS256",
+        )
+
+        return AuthResponse(
+            token=jwt_token,
+            user=UserResponse(
+                id=str(user["_id"]),
+                email=user["email"],
+                name=user["name"],
+                picture=user.get("picture"),
+            ),
+        )
+
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 
 @app.get("/images/{image_path:path}")

@@ -2,17 +2,18 @@
 Database configuration settings.
 """
 
-import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 # MongoDB Configuration
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+# MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
 DATABASE_NAME = "wardrobe_db"
-COLLECTION_NAME = "clothing_items"
+CLOTHING_ITEMS_DB_NAME = "clothing_items"
+USER_DB_NAME = "users"
 
 # File storage configuration
 BASE_DIR = Path(__file__).parent.parent.parent

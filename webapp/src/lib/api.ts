@@ -110,6 +110,15 @@ class ApiService {
     return response.json();
   }
 
+  async addUserToDataBase(credentialResponse: { credential?: string }): Promise<{ token: string; user: { id: string; email: string; name: string; picture?: string } }> {
+    return this.request(`/api/auth/google`, {
+      method: 'POST',
+      body: JSON.stringify({
+        token: credentialResponse.credential
+      })
+    });
+  }
+
   async healthCheck(): Promise<{ status: string; database: string }> {
     return this.request<{ status: string; database: string }>('/health');
   }

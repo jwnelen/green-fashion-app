@@ -4,7 +4,12 @@ from typing import Dict, List, Optional
 from bson import ObjectId
 from pymongo import MongoClient
 
-from .config import COLLECTION_NAME, DATABASE_NAME, MONGODB_URI, WARDROBE_IMAGES_DIR
+from .config import (
+    CLOTHING_ITEMS_DB_NAME,
+    DATABASE_NAME,
+    USER_DB_NAME,
+    WARDROBE_IMAGES_DIR,
+)
 
 
 class MongoDBManager:
@@ -26,13 +31,13 @@ class MongoDBManager:
             mongodb_uri: MongoDB connection string (optional)
             database_name: Database name (optional)
         """
-        self.mongodb_uri = mongodb_uri or MONGODB_URI
+        self.mongodb_uri = mongodb_uri
         self.database_name = database_name or DATABASE_NAME
-        self.collection_name = COLLECTION_NAME
 
         self.client = None
         self.db = None
-        self.collection = None
+        self.clothing_items_db = None
+        self.user_db = None
         self.connection_error = None
 
         self.connect_to_db()
@@ -53,7 +58,8 @@ class MongoDBManager:
                 socketTimeoutMS=4000,  # 2 second socket timeout
             )
             self.db = self.client[self.database_name]
-            self.collection = self.db[self.collection_name]
+            self.clothing_items_db = self.db[CLOTHING_ITEMS_DB_NAME]
+            self.user_db = self.db[USER_DB_NAME]
 
             # Test connection
             self.client.server_info()
@@ -63,7 +69,8 @@ class MongoDBManager:
             self.connection_error = str(e)
             self.client = None
             self.db = None
-            self.collection = None
+            self.clothing_items_db = None
+            self.user_db = None
             return False
 
     def close_connection(self):
@@ -93,7 +100,7 @@ class MongoDBManager:
         try:
             item_data["created_at"] = datetime.now()
             item_data["updated_at"] = datetime.now()
-            result = self.collection.insert_one(item_data)
+            result = self.clothing_items_db.insert_one(item_data)
             return str(result.inserted_id)
         except Exception as e:
             print(f"Error adding item: {str(e)}")
@@ -107,7 +114,7 @@ class MongoDBManager:
             List[Dict]: List of all clothing items
         """
         try:
-            items = list(self.collection.find())
+            items = list(self.clothing_items_db.find())
             for item in items:
                 item["_id"] = str(item["_id"])
             return items
@@ -126,7 +133,7 @@ class MongoDBManager:
             Dict: Item data or None if not found
         """
         try:
-            item = self.collection.find_one({"_id": ObjectId(item_id)})
+            item = self.clothing_items_db.find_one({"_id": ObjectId(item_id)})
             if item:
                 item["_id"] = str(item["_id"])
             return item
@@ -147,7 +154,7 @@ class MongoDBManager:
         """
         try:
             updates["updated_at"] = datetime.now()
-            result = self.collection.update_one(
+            result = self.clothing_items_db.update_one(
                 {"_id": ObjectId(item_id)}, {"$set": updates}
             )
             return result.modified_count > 0
@@ -167,7 +174,7 @@ class MongoDBManager:
         """
         try:
             # First get the item to check if it has an image
-            result = self.collection.delete_one({"_id": ObjectId(item_id)})
+            result = self.clothing_items_db.delete_one({"_id": ObjectId(item_id)})
             return result.deleted_count > 0
         except Exception as e:
             print(f"Error deleting item: {str(e)}")
@@ -187,7 +194,7 @@ class MongoDBManager:
         """
         try:
             items = list(
-                self.collection.find(
+                self.clothing_items_db.find(
                     {
                         "$or": [
                             {"custom_name": {"$regex": query, "$options": "i"}},
@@ -215,7 +222,7 @@ class MongoDBManager:
             List[Dict]: List of items in the category
         """
         try:
-            items = list(self.collection.find({"category": category}))
+            items = list(self.clothing_items_db.find({"category": category}))
             for item in items:
                 item["_id"] = str(item["_id"])
             return items
@@ -231,7 +238,7 @@ class MongoDBManager:
             List[str]: List of unique categories
         """
         try:
-            return self.collection.distinct("category")
+            return self.clothing_items_db.distinct("category")
         except Exception as e:
             print(f"Error fetching categories: {str(e)}")
             return []
@@ -244,7 +251,7 @@ class MongoDBManager:
             int: Total item count
         """
         try:
-            return self.collection.count_documents({})
+            return self.clothing_items_db.count_documents({})
         except Exception as e:
             print(f"Error getting item count: {str(e)}")
             return 0
@@ -261,11 +268,36 @@ class MongoDBManager:
                 {"$group": {"_id": "$category", "count": {"$sum": 1}}},
                 {"$sort": {"count": -1}},
             ]
-            results = list(self.collection.aggregate(pipeline))
+            results = list(self.clothing_items_db.aggregate(pipeline))
             return {result["_id"]: result["count"] for result in results}
         except Exception as e:
             print(f"Error getting category counts: {str(e)}")
             return {}
+
+    def create_or_get_user(self, google_user_data):
+        existing_user = self.user_db.find_one(
+            {"google_id": google_user_data["google_id"]}
+        )
+
+        if existing_user:
+            self.user_db.update_one(
+                {"_id": existing_user["_id"]},
+                {"$set": {"last_login": datetime.utcnow()}},
+            )
+            return existing_user
+
+        user_doc = {
+            "google_id": google_user_data["google_id"],
+            "email": google_user_data["email"],
+            "name": google_user_data["name"],
+            "picture": google_user_data.get("picture"),
+            "created_at": datetime.utcnow(),
+            "last_login": datetime.utcnow(),
+        }
+
+        result = self.user_db.insert_one(user_doc)
+        user_doc["_id"] = result.inserted_id
+        return user_doc
 
     def __enter__(self):
         """Context manager entry."""

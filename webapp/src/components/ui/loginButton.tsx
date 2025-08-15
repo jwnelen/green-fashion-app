@@ -1,22 +1,24 @@
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../hooks/useAuth'
+import { api } from "../../lib/api"
 
 export default function LoginButton() {
   const { saveToken } = useAuth()
 
-  const handleSuccess = (response: { credential?: string }) => {
+  const handleSuccess = async (response: { credential?: string }) => {
     const token = response?.credential
     if (!token) {
       console.error('No credential received from Google')
       return
     }
 
-    /**
-     * Here you can also implement Supabase.com authorization,
-     * which is perfect for MVP projects to test your business model
-     */
-
-    saveToken(token)
+    try {
+      const authResponse = await api.addUserToDataBase(response)
+      console.log('Auth successful:', authResponse)
+      saveToken(authResponse.token)
+    } catch (error) {
+      console.error('Authentication failed:', error)
+    }
   }
 
   const handleError = () => {

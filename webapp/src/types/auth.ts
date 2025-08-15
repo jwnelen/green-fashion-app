@@ -1,7 +1,7 @@
 export type AuthToken = string
 
 export interface DecodedUser {
-  sub: string
+  user_id: string
   email: string
   name?: string
   picture?: string
