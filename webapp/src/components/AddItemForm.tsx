@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { api } from '../lib/api';
-import {classifierAPI } from '../lib/classifier_api'
 
 import type { ClothingItem } from '../lib/api';
 import { CLOTHING_CATEGORIES, BODY_SECTIONS, type ClothingCategory } from '../lib/constants';
