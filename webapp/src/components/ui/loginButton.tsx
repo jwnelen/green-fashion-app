@@ -1,10 +1,10 @@
 import { GoogleLogin } from '@react-oauth/google'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function LoginButton() {
   const { saveToken } = useAuth()
 
-  const handleSuccess = (response: any) => {
+  const handleSuccess = (response: { credential?: string }) => {
     const token = response?.credential
     if (!token) {
       console.error('No credential received from Google')

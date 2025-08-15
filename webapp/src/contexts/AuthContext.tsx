@@ -1,30 +1,9 @@
-import React, { createContext, useContext, useCallback, useState, useEffect, ReactNode } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { googleLogout } from '@react-oauth/google'
-
-export type AuthToken = string
-
-interface DecodedUser {
-  sub: string
-  email: string
-  name?: string
-  picture?: string
-  exp?: number
-  [key: string]: unknown
-}
-
-interface AuthContextType {
-  user: DecodedUser | null
-  saveToken: (token: AuthToken) => void
-  getToken: () => AuthToken | null
-  removeToken: () => void
-  logout: () => void
-  isTokenExpired: (token: AuthToken) => boolean
-  getUserFromToken: () => DecodedUser | null
-  getUser: () => DecodedUser | null
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+import type { AuthToken, DecodedUser, AuthContextType } from '../types/auth'
+import { AuthContext } from './auth-context'
 
 const SESSION_KEY = 'googleToken'
 
@@ -115,12 +94,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
 }

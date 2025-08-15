@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardFooter } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -20,27 +20,7 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  useEffect(() => {
-    loadItems();
-  }, []);
-
-  useEffect(() => {
-    filterItems();
-  }, [items, selectedCategory, searchQuery]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getItems();
-      setItems(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load items');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterItems = () => {
+  const filterItems = useCallback(() => {
     let filtered = items;
 
     if (selectedCategory !== 'all') {
@@ -57,6 +37,26 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
 
     setFilteredItems(filtered);
+  }, [items, selectedCategory, searchQuery]);
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  useEffect(() => {
+    filterItems();
+  }, [items, selectedCategory, searchQuery, filterItems]);
+
+  const loadItems = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getItems();
+      setItems(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load items');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteItem = async (id: string) => {

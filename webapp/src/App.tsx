@@ -7,7 +7,7 @@ import type { ClothingItem } from './lib/api';
 import { Columns2, Shirt, Plus, Menu } from 'lucide-react';
 import LoginButton from './components/ui/loginButton'
 import UserDropdown from './components/ui/UserDropdown'
-import { useAuth } from './contexts/AuthContext';
+import { useAuth } from './hooks/useAuth';
 
 
 function Navigation() {
