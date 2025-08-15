@@ -31,12 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-load_dotenv()
-
-MONGO_URI = os.getenv("MONGODB_URI")
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-SECRET_KEY = os.getenv("SECRET_KEY")
-
 
 # Pydantic models
 class ClothingItem(BaseModel):
@@ -73,9 +67,15 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
+load_dotenv()
+
+MONGO_URI = os.getenv("MONGODB_URI")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SECRET_KEY = os.getenv("SECRET_KEY")
+BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
 # Initialize database connection
 db_manager = MongoDBManager(MONGO_URI)
-gcs_service = get_gcs_service()
+gcs_service = get_gcs_service(BUCKET_NAME)
 security = HTTPBearer()
 
 
@@ -232,12 +232,23 @@ async def upload_image(item_id: str, file: UploadFile = File(...)):
 
         # Save image to GCS
         filename = item.get("custom_name", f"item_{item_id}").replace(" ", "_").lower()
-        image_path = gcs_service.save_image(
-            image=file.file, filename=filename, category="wardrobe"
-        )
+        print(f"Debug: Attempting to save image with filename: {filename}")
+
+        try:
+            image_path = gcs_service.save_image(
+                image=file.file, filename=filename, category="wardrobe"
+            )
+            print(f"Debug: GCS save_image returned: {image_path}")
+        except Exception as e:
+            print(f"Debug: GCS save_image failed with error: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to save image to GCS: {str(e)}"
+            )
 
         if not image_path:
-            raise HTTPException(status_code=500, detail="Failed to save image")
+            raise HTTPException(
+                status_code=500, detail="Failed to save image - no path returned"
+            )
 
         # Update item with image path
         db_manager.update_item(
@@ -303,8 +314,9 @@ async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
         # Load image from GCS
+        print("loading image from", image_path)
         image = gcs_service.load_image(image_path)
-
+        print("image loaded")
         # Convert PIL image to bytes
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format="JPEG", quality=95)

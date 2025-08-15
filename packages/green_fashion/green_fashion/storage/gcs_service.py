@@ -16,15 +16,15 @@ from .config import (
     GCS_CREDENTIALS_PATH,
     GCS_PROJECT_ID,
     WARDROBE_IMAGES_PATH,
-    get_bucket_name,
 )
 
 
 class GCSService:
     """Google Cloud Storage service for image operations."""
 
-    def __init__(self):
+    def __init__(self, bucket_name):
         """Initialize GCS client."""
+        self._bucket_name = bucket_name
         self._client = None
         self._bucket = None
 
@@ -33,6 +33,9 @@ class GCSService:
         """Get or create GCS client."""
         if self._client is None:
             if GCS_CREDENTIALS_PATH and os.path.exists(GCS_CREDENTIALS_PATH):
+                print(
+                    f"Debug: Using service account credentials from {GCS_CREDENTIALS_PATH}"
+                )
                 self._client = storage.Client.from_service_account_json(
                     GCS_CREDENTIALS_PATH, project=GCS_PROJECT_ID
                 )
@@ -45,8 +48,7 @@ class GCSService:
     def bucket(self) -> storage.Bucket:
         """Get or create bucket reference."""
         if self._bucket is None:
-            bucket_name = get_bucket_name()
-            self._bucket = self.client.bucket(bucket_name)
+            self._bucket = self.client.bucket(self._bucket_name)
         return self._bucket
 
     def save_image(
@@ -251,9 +253,9 @@ class GCSService:
 _gcs_service = None
 
 
-def get_gcs_service() -> GCSService:
+def get_gcs_service(bucket_name) -> GCSService:
     """Get singleton GCS service instance."""
     global _gcs_service
     if _gcs_service is None:
-        _gcs_service = GCSService()
+        _gcs_service = GCSService(bucket_name)
     return _gcs_service
