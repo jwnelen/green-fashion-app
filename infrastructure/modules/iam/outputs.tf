@@ -5,5 +5,5 @@ output "service_account_email" {
 
 output "gcs_service_account_key_secret_id" {
   description = "Secret Manager secret ID for GCS service account key"
-  value       = var.environment == "dev" ? google_secret_manager_secret.gcs_service_account_key[0].secret_id : null
+  value       = var.environment == "dev" && length(google_secret_manager_secret.gcs_service_account_key) > 0 ? google_secret_manager_secret.gcs_service_account_key[0].secret_id : null
 }

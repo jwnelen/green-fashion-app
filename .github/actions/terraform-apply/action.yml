@@ -77,6 +77,28 @@ runs:
         echo '${{ inputs.additional-vars }}' | jq -r 'to_entries[] | "-var \(.key)=\(.value)"' > /tmp/tf-vars.txt
         echo "args=$(cat /tmp/tf-vars.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
+    - name: Terraform Refresh State
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        PLAN_ARGS=""
+        if [ -n "${{ inputs.var-file }}" ]; then
+          PLAN_ARGS="-var-file=${{ inputs.var-file }}"
+        fi
+
+        echo "Refreshing Terraform state to sync with actual infrastructure..."
+        terraform plan -refresh-only \
+          $PLAN_ARGS \
+          ${{ steps.vars.outputs.args }} \
+          -input=false
+
+        echo "Applying refresh to update state..."
+        terraform apply -refresh-only -auto-approve \
+          $PLAN_ARGS \
+          ${{ steps.vars.outputs.args }} \
+          -input=false
+      continue-on-error: true
+
     - name: Terraform Plan
       id: plan
       shell: bash
