@@ -78,12 +78,12 @@ jobs:
 
       - name: Deploy API to Cloud Run
         run: |
-          gcloud run deploy api-dev \
+          gcloud run deploy green-fashion-dev \
             --image=${{ needs.build-api.outputs.image-url }} \
             --region=us-central1 \
             --platform=managed \
             --allow-unauthenticated \
-            --service-account=api-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+            --service-account=green-fashion-dev@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
 
       - name: Deploy Classifier API to Cloud Run
         run: |
@@ -92,6 +92,6 @@ jobs:
             --region=us-central1 \
             --platform=managed \
             --allow-unauthenticated \
-            --cpu=2 \
-            --memory=4Gi \
-            --service-account=classifier-api-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+            --cpu=1 \
+            --memory=2Gi \
+            --service-account=green-fashion-dev@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
