@@ -4,32 +4,33 @@ import { Button } from './components/ui/button';
 import { WardrobeView } from './components/WardrobeView';
 import { AddItemForm } from './components/AddItemForm';
 import type { ClothingItem } from './lib/api';
-import { Shirt, Plus, Menu } from 'lucide-react';
+import { Columns2, Shirt, Plus, Menu } from 'lucide-react';
+import LoginButton from './components/ui/loginButton'
+import UserDropdown from './components/ui/UserDropdown'
+import { useSessionToken } from './hooks/useSessionToken';
+
 
 function Navigation() {
   const location = useLocation();
+  const { user } = useSessionToken()
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-2">
               <Shirt className="h-8 w-8 text-blue-600" />
               <span className="font-bold text-xl text-gray-900">Green Fashion</span>
             </Link>
-          </div>
-
-          {/* Desktop menu */}
-          <div className="hidden md:block">
-            <div className="flex items-center space-x-4">
               <Link to="/">
                 <Button
                   variant={location.pathname === '/' ? 'default' : 'ghost'}
                   size="sm"
                 >
-                  <Shirt className="w-4 h-4 mr-2" />
+                  <Columns2 className='w-4 h-4 mr-2'/>
                   Wardrobe
                 </Button>
               </Link>
@@ -42,6 +43,12 @@ function Navigation() {
                   Add Item
                 </Button>
               </Link>
+          </div>
+
+          {/* Desktop menu */}
+          <div className="hidden md:block">
+            <div className="flex items-center space-x-4">
+              {user ? <UserDropdown /> : <LoginButton /> }
             </div>
           </div>
 
@@ -81,6 +88,8 @@ function Navigation() {
                   Add Item
                 </Button>
               </Link>
+              {user ? <UserDropdown /> : <LoginButton />}
+
             </div>
           </div>
         )}
