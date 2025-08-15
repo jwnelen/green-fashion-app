@@ -274,6 +274,8 @@ async def google_auth(auth_request: GoogleAuthRequest):
             {
                 "user_id": str(user["_id"]),
                 "email": user["email"],
+                "name": user["name"],
+                "picture": user.get("picture"),
                 "exp": datetime.utcnow() + timedelta(days=7),
             },
             SECRET_KEY,
