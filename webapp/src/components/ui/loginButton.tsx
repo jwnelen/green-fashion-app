@@ -1,12 +1,15 @@
 import { GoogleLogin } from '@react-oauth/google'
-import { useSessionToken } from '../../hooks/useSessionToken'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function LoginButton() {
-  const { saveToken } = useSessionToken()
+  const { saveToken } = useAuth()
 
   const handleSuccess = (response: any) => {
     const token = response?.credential
-    if (!token) return
+    if (!token) {
+      console.error('No credential received from Google')
+      return
+    }
 
     /**
      * Here you can also implement Supabase.com authorization,
@@ -14,7 +17,6 @@ export default function LoginButton() {
      */
 
     saveToken(token)
-    console.log('Login successful, token saved')
   }
 
   const handleError = () => {

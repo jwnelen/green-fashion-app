@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { useSessionToken } from '../../hooks/useSessionToken'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function UserDropdown() {
-  const { user, logout } = useSessionToken()
+  const { user, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
   if (!user) return null
