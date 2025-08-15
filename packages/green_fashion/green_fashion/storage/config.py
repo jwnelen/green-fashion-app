@@ -12,20 +12,19 @@ load_dotenv()
 GCS_CREDENTIALS_PATH = os.getenv("GCS_CREDENTIALS_PATH")
 GCS_PROJECT_ID = os.getenv("GCS_PROJECT_ID")
 
-# Bucket names for different environments
-GCS_BUCKET_DEV = os.getenv("GCS_BUCKET_DEV", "green-fashion-dev")
-GCS_BUCKET_PROD = os.getenv("GCS_BUCKET_PROD", "green-fashion-prod")
+# Bucket name (set by Cloud Run environment)
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
 # Current environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
 
-# Get the appropriate bucket based on environment
+# Get the bucket name
 def get_bucket_name() -> str:
-    """Get the bucket name for the current environment."""
-    if ENVIRONMENT.lower() == "prod":
-        return GCS_BUCKET_PROD
-    return GCS_BUCKET_DEV
+    """Get the bucket name from environment variable."""
+    if not GCS_BUCKET_NAME:
+        raise ValueError("GCS_BUCKET_NAME environment variable must be set")
+    return GCS_BUCKET_NAME
 
 
 # Storage paths within buckets
