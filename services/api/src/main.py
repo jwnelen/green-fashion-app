@@ -6,10 +6,10 @@ from typing import Dict, List, Optional
 import jwt
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from pydantic import BaseModel
@@ -37,6 +37,7 @@ class ClothingItem(BaseModel):
     custom_name: str
     category: str
     body_section: int
+    user_id: str
     notes: Optional[str] = ""
     colors: Optional[List[Dict]] = []
     display_name: Optional[str] = ""
@@ -79,6 +80,17 @@ gcs_service = get_gcs_service(BUCKET_NAME)
 security = HTTPBearer()
 
 
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
+        user_id = payload["user_id"]
+        return user_id
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
 @app.get("/")
 async def root():
     return {"message": "Green Fashion Wardrobe API", "version": "1.0.0"}
@@ -92,20 +104,20 @@ async def health_check():
 
 
 @app.get("/items", response_model=List[Dict])
-async def get_all_items():
+async def get_all_items(current_user_id: str = Depends(get_current_user)):
     """Get all clothing items"""
+    print(f"getting all items for {current_user_id}")
     try:
-        items = db_manager.get_all_items()
-        return items
+        return db_manager.get_all_items(current_user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/items/{item_id}")
-async def get_item(item_id: str):
+async def get_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Get a specific clothing item by ID"""
     try:
-        item = db_manager.get_item_by_id(item_id)
+        item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
         return item
@@ -114,10 +126,13 @@ async def get_item(item_id: str):
 
 
 @app.post("/items")
-async def create_item(item: ClothingItem):
+async def create_item(
+    item: ClothingItem, current_user_id: str = Depends(get_current_user)
+):
     """Create a new clothing item"""
     try:
         item_data = item.dict()
+        item_data["user_id"] = current_user_id
         item_id = db_manager.add_clothing_item(item_data)
         if not item_id:
             raise HTTPException(status_code=500, detail="Failed to create item")
@@ -127,14 +142,18 @@ async def create_item(item: ClothingItem):
 
 
 @app.put("/items/{item_id}")
-async def update_item(item_id: str, updates: UpdateClothingItem):
+async def update_item(
+    item_id: str,
+    updates: UpdateClothingItem,
+    current_user_id: str = Depends(get_current_user),
+):
     """Update an existing clothing item"""
     try:
         update_data = {k: v for k, v in updates.dict().items() if v is not None}
         if not update_data:
             raise HTTPException(status_code=400, detail="No valid updates provided")
 
-        success = db_manager.update_item(item_id, update_data)
+        success = db_manager.update_item(item_id, update_data, current_user_id)
         if not success:
             raise HTTPException(
                 status_code=404, detail="Item not found or update failed"
@@ -145,16 +164,16 @@ async def update_item(item_id: str, updates: UpdateClothingItem):
 
 
 @app.delete("/items/{item_id}")
-async def delete_item(item_id: str):
+async def delete_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Delete a clothing item"""
     try:
         # Get item first to access image path if it exists
-        item = db_manager.get_item_by_id(item_id)
+        item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
 
         # Delete from database
-        success = db_manager.delete_item(item_id)
+        success = db_manager.delete_item(item_id, current_user_id)
         if not success:
             raise HTTPException(
                 status_code=500, detail="Failed to delete item from database"
@@ -175,54 +194,60 @@ async def delete_item(item_id: str):
 
 
 @app.get("/items/category/{category}")
-async def get_items_by_category(category: str):
+async def get_items_by_category(
+    category: str, current_user_id: str = Depends(get_current_user)
+):
     """Get all items in a specific category"""
     try:
-        items = db_manager.get_items_by_category(category)
+        items = db_manager.get_items_by_category(category, current_user_id)
         return items
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/categories")
-async def get_categories():
+async def get_categories(current_user_id: str = Depends(get_current_user)):
     """Get all unique categories"""
     try:
-        categories = db_manager.get_categories()
+        categories = db_manager.get_categories(current_user_id)
         return {"categories": categories}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/search")
-async def search_items(query: str):
+async def search_items(query: str, current_user_id: str = Depends(get_current_user)):
     """Search for items by name, category, or filename"""
     try:
         if not query.strip():
             raise HTTPException(status_code=400, detail="Search query cannot be empty")
-        items = db_manager.search_items(query)
+        items = db_manager.search_items(query, current_user_id)
         return items
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/stats")
-async def get_stats():
+async def get_stats(current_user_id: str = Depends(get_current_user)):
     """Get wardrobe statistics"""
     try:
-        total_items = db_manager.get_item_count()
-        category_counts = db_manager.get_category_counts()
+        total_items = db_manager.get_item_count(current_user_id)
+        category_counts = db_manager.get_category_counts(current_user_id)
         return {"total_items": total_items, "category_counts": category_counts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/items/{item_id}/upload-image")
-async def upload_image(item_id: str, file: UploadFile = File(...)):
+async def upload_image(
+    item_id: str,
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user),
+):
     """Upload an image for a clothing item"""
     try:
         # Check if item exists
-        item = db_manager.get_item_by_id(item_id)
+        item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
 
@@ -256,7 +281,9 @@ async def upload_image(item_id: str, file: UploadFile = File(...)):
 
         # Update item with image path
         db_manager.update_item(
-            item_id, {"path": image_path, "display_name": file.filename}
+            item_id,
+            {"path": image_path, "display_name": file.filename},
+            current_user_id,
         )
 
         return {"message": "Image uploaded successfully", "path": image_path}

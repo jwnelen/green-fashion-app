@@ -50,24 +50,24 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
         setError(null);
         setClassificationResult(null);
 
-        try {
-          const result = await classifierAPI.classifyImage(file);
-          const classifiedCategory = result.message.toLowerCase();
+        // try {
+        //   const result = await classifierAPI.classifyImage(file);
+        //   const classifiedCategory = result.message.toLowerCase();
 
-          // Check if the classified category exists in our categories list
-          if (CLOTHING_CATEGORIES.includes(classifiedCategory as ClothingCategory)) {
-            setClassificationResult(classifiedCategory);
-            // Automatically select the classified category
-            setFormData(prev => ({
-              ...prev,
-              category: classifiedCategory as ClothingCategory
-            }));
-          } else {
-            setClassificationResult(classifiedCategory);
-          }
-        } catch (classificationError) {
-          console.warn('Classification failed:', classificationError);
-        }
+        //   // Check if the classified category exists in our categories list
+        //   if (CLOTHING_CATEGORIES.includes(classifiedCategory as ClothingCategory)) {
+        //     setClassificationResult(classifiedCategory);
+        //     // Automatically select the classified category
+        //     setFormData(prev => ({
+        //       ...prev,
+        //       category: classifiedCategory as ClothingCategory
+        //     }));
+        //   } else {
+        //     setClassificationResult(classifiedCategory);
+        //   }
+        // } catch (classificationError) {
+        //   console.warn('Classification failed:', classificationError);
+        // }
 
       } else {
         setError('Please select a valid image file');

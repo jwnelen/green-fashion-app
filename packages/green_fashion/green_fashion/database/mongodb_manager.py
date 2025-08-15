@@ -100,13 +100,15 @@ class MongoDBManager:
         try:
             item_data["created_at"] = datetime.now()
             item_data["updated_at"] = datetime.now()
+            if "user_id" in item_data:
+                item_data["user_id"] = ObjectId(item_data["user_id"])
             result = self.clothing_items_db.insert_one(item_data)
             return str(result.inserted_id)
         except Exception as e:
             print(f"Error adding item: {str(e)}")
             return None
 
-    def get_all_items(self) -> List[Dict]:
+    def get_all_items(self, user_id) -> List[Dict]:
         """
         Retrieve all clothing items from the database.
 
@@ -114,67 +116,81 @@ class MongoDBManager:
             List[Dict]: List of all clothing items
         """
         try:
-            items = list(self.clothing_items_db.find())
+            items = list(self.clothing_items_db.find({"user_id": ObjectId(user_id)}))
+            print(f"retrieved {len(items)} items")
             for item in items:
                 item["_id"] = str(item["_id"])
+                if "user_id" in item:
+                    item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
             print(f"Error fetching items: {str(e)}")
             return []
 
-    def get_item_by_id(self, item_id: str) -> Optional[Dict]:
+    def get_item_by_id(self, item_id: str, user_id: str = None) -> Optional[Dict]:
         """
         Retrieve a specific item by its ID.
 
         Args:
             item_id: The item's ID
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             Dict: Item data or None if not found
         """
         try:
-            item = self.clothing_items_db.find_one({"_id": ObjectId(item_id)})
+            query = {"_id": ObjectId(item_id)}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            item = self.clothing_items_db.find_one(query)
             if item:
                 item["_id"] = str(item["_id"])
+                if "user_id" in item:
+                    item["user_id"] = str(item["user_id"])
             return item
         except Exception as e:
             print(f"Error fetching item: {str(e)}")
             return None
 
-    def update_item(self, item_id: str, updates: Dict) -> bool:
+    def update_item(self, item_id: str, updates: Dict, user_id: str = None) -> bool:
         """
         Update an existing clothing item.
 
         Args:
             item_id: The item's ID
             updates: Dictionary of fields to update
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             bool: True if update successful, False otherwise
         """
         try:
             updates["updated_at"] = datetime.now()
-            result = self.clothing_items_db.update_one(
-                {"_id": ObjectId(item_id)}, {"$set": updates}
-            )
+            query = {"_id": ObjectId(item_id)}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            result = self.clothing_items_db.update_one(query, {"$set": updates})
             return result.modified_count > 0
         except Exception as e:
             print(f"Error updating item: {str(e)}")
             return False
 
-    def delete_item(self, item_id: str) -> bool:
+    def delete_item(self, item_id: str, user_id: str = None) -> bool:
         """
         Delete a clothing item and its associated image file.
 
         Args:
             item_id: The item's ID
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             bool: True if deletion successful, False otherwise
         """
         try:
-            # First get the item to check if it has an image
-            result = self.clothing_items_db.delete_one({"_id": ObjectId(item_id)})
+            query = {"_id": ObjectId(item_id)}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            result = self.clothing_items_db.delete_one(query)
             return result.deleted_count > 0
         except Exception as e:
             print(f"Error deleting item: {str(e)}")
@@ -182,92 +198,121 @@ class MongoDBManager:
 
     # Search Operations
 
-    def search_items(self, query: str) -> List[Dict]:
+    def search_items(self, query: str, user_id: str = None) -> List[Dict]:
         """
         Search for items based on name, category, or filename.
 
         Args:
             query: Search query string
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             List[Dict]: List of matching items
         """
         try:
-            items = list(
-                self.clothing_items_db.find(
-                    {
-                        "$or": [
-                            {"custom_name": {"$regex": query, "$options": "i"}},
-                            {"category": {"$regex": query, "$options": "i"}},
-                            {"display_name": {"$regex": query, "$options": "i"}},
-                        ]
-                    }
-                )
-            )
+            search_conditions = {
+                "$or": [
+                    {"custom_name": {"$regex": query, "$options": "i"}},
+                    {"category": {"$regex": query, "$options": "i"}},
+                    {"display_name": {"$regex": query, "$options": "i"}},
+                ]
+            }
+            if user_id:
+                search_conditions["user_id"] = ObjectId(user_id)
+
+            items = list(self.clothing_items_db.find(search_conditions))
             for item in items:
                 item["_id"] = str(item["_id"])
+                if "user_id" in item:
+                    item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
             print(f"Error searching items: {str(e)}")
             return []
 
-    def get_items_by_category(self, category: str) -> List[Dict]:
+    def get_items_by_category(self, category: str, user_id: str = None) -> List[Dict]:
         """
         Get all items in a specific category.
 
         Args:
             category: Category name
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             List[Dict]: List of items in the category
         """
         try:
-            items = list(self.clothing_items_db.find({"category": category}))
+            query = {"category": category}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            items = list(self.clothing_items_db.find(query))
             for item in items:
                 item["_id"] = str(item["_id"])
+                if "user_id" in item:
+                    item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
             print(f"Error fetching items by category: {str(e)}")
             return []
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self, user_id: str = None) -> List[str]:
         """
         Get all unique categories in the database.
+
+        Args:
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             List[str]: List of unique categories
         """
         try:
-            return self.clothing_items_db.distinct("category")
+            query = {}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            return self.clothing_items_db.distinct("category", query)
         except Exception as e:
             print(f"Error fetching categories: {str(e)}")
             return []
 
-    def get_item_count(self) -> int:
+    def get_item_count(self, user_id: str = None) -> int:
         """
         Get total number of items in the wardrobe.
+
+        Args:
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             int: Total item count
         """
         try:
-            return self.clothing_items_db.count_documents({})
+            query = {}
+            if user_id:
+                query["user_id"] = ObjectId(user_id)
+            return self.clothing_items_db.count_documents(query)
         except Exception as e:
             print(f"Error getting item count: {str(e)}")
             return 0
 
-    def get_category_counts(self) -> Dict[str, int]:
+    def get_category_counts(self, user_id: str = None) -> Dict[str, int]:
         """
         Get count of items per category.
+
+        Args:
+            user_id: The user's ID (optional for backwards compatibility)
 
         Returns:
             Dict[str, int]: Category counts
         """
         try:
-            pipeline = [
-                {"$group": {"_id": "$category", "count": {"$sum": 1}}},
-                {"$sort": {"count": -1}},
-            ]
+            pipeline = []
+            if user_id:
+                pipeline.append({"$match": {"user_id": ObjectId(user_id)}})
+            pipeline.extend(
+                [
+                    {"$group": {"_id": "$category", "count": {"$sum": 1}}},
+                    {"$sort": {"count": -1}},
+                ]
+            )
             results = list(self.clothing_items_db.aggregate(pipeline))
             return {result["_id"]: result["count"] for result in results}
         except Exception as e:
