@@ -230,8 +230,12 @@ async def upload_image(item_id: str, file: UploadFile = File(...)):
         if not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image")
 
-        # Save image to GCS
-        filename = item.get("custom_name", f"item_{item_id}").replace(" ", "_").lower()
+        # Save image to GCS using display_name (original filename)
+        # Remove file extension from display_name and clean it up
+        base_filename = (
+            file.filename.rsplit(".", 1)[0] if "." in file.filename else file.filename
+        )
+        filename = base_filename.replace(" ", "_").lower()
         print(f"Debug: Attempting to save image with filename: {filename}")
 
         try:

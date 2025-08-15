@@ -239,6 +239,23 @@ class GCSService:
         else:
             raise ValueError("Image must be PIL Image, file path, or file-like object")
 
+        # Handle EXIF orientation (fixes iPhone rotation issues)
+        try:
+            # Get EXIF data
+            exif = img._getexif()
+            if exif is not None:
+                # Look for orientation tag (274)
+                orientation = exif.get(274)
+                if orientation == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation == 8:
+                    img = img.rotate(90, expand=True)
+        except (AttributeError, KeyError, TypeError):
+            # If EXIF data is not available or corrupted, continue without rotation
+            pass
+
         # Convert to RGB if necessary
         if img.mode != "RGB":
             img = img.convert("RGB")
