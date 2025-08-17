@@ -73,6 +73,16 @@ variable "mongodb_secret_id" {
   type        = string
 }
 
+variable "google_client_id_secret_id" {
+  description = "Secret Manager secret ID for Google client ID"
+  type        = string
+}
+
+variable "google_client_secret_id" {
+  description = "Secret Manager secret ID for Google client secret"
+  type        = string
+}
+
 variable "labels" {
   description = "Labels to apply to resources"
   type        = map(string)
