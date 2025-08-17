@@ -59,6 +59,26 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
         }
       }
 
+      env {
+        name = "GOOGLE_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = var.google_client_id_secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GOOGLE_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = var.google_client_secret_id
+            version = "latest"
+          }
+        }
+      }
+
       # Ports
       ports {
         container_port = 8000
