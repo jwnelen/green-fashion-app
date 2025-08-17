@@ -279,18 +279,10 @@ async def upload_image(
                 status_code=500, detail="Failed to save image - no path returned"
             )
 
-        # Store the path relative to /images/ endpoint (remove "images/" prefix)
-        # API route is /images/{path}, so we store "wardrobe/filename.jpg"
-        stored_path = (
-            image_path.replace("images/", "", 1)
-            if image_path.startswith("images/")
-            else image_path
-        )
-
         # Update item with image path
         db_manager.update_item(
             item_id,
-            {"path": stored_path, "display_name": file.filename},
+            {"path": image_path, "display_name": file.filename},
             current_user_id,
         )
 
@@ -353,9 +345,8 @@ async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
         # Construct full GCS path (add "images/" prefix back)
-        full_gcs_path = f"images/{image_path}"
-        print("loading image from", full_gcs_path)
-        image = gcs_service.load_image(full_gcs_path)
+        print("loading image from", image_path)
+        image = gcs_service.load_image(image_path)
         print("image loaded")
         # Convert PIL image to bytes
         img_byte_arr = io.BytesIO()
