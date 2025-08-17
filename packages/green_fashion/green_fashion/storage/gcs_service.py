@@ -11,12 +11,7 @@ from google.cloud import storage
 from google.cloud.exceptions import GoogleCloudError, NotFound
 from PIL import Image
 
-from .config import (
-    DATASET_IMAGES_PATH,
-    GCS_CREDENTIALS_PATH,
-    GCS_PROJECT_ID,
-    WARDROBE_IMAGES_PATH,
-)
+from .config import GCS_CREDENTIALS_PATH, GCS_PROJECT_ID
 
 
 class GCSService:
@@ -54,8 +49,7 @@ class GCSService:
     def save_image(
         self,
         image: Union[Image.Image, str, Path],
-        filename: str,
-        category: str = "wardrobe",
+        blob_path: str,
         quality: int = 95,
     ) -> str:
         """
@@ -63,8 +57,7 @@ class GCSService:
 
         Args:
             image: PIL Image, file path, or image data
-            filename: Name for the saved file (without extension)
-            category: Category folder ('wardrobe' or 'dataset')
+            blob_path: Full GCS blob path (e.g., "images/wardrobe/filename.jpg")
             quality: JPEG quality (1-100)
 
         Returns:
@@ -75,26 +68,18 @@ class GCSService:
             ValueError: If image format is invalid
         """
         try:
-            # Determine the storage path based on category
-            if category == "dataset":
-                storage_path = DATASET_IMAGES_PATH
-            else:
-                storage_path = WARDROBE_IMAGES_PATH
-
-            # Ensure filename has .jpg extension
-            if not filename.lower().endswith(".jpg"):
-                filename = f"{filename}.jpg"
-
-            blob_name = f"{storage_path}/{filename}"
+            # Ensure the path has .jpg extension
+            if not blob_path.lower().endswith(".jpg"):
+                blob_path = f"{blob_path}.jpg"
 
             # Convert image to bytes
             image_bytes = self._prepare_image_bytes(image, quality)
 
             # Upload to GCS
-            blob = self.bucket.blob(blob_name)
+            blob = self.bucket.blob(blob_path)
             blob.upload_from_string(image_bytes, content_type="image/jpeg")
 
-            return blob_name
+            return blob_path
 
         except Exception as e:
             raise GoogleCloudError(f"Failed to save image: {str(e)}")
@@ -185,31 +170,18 @@ class GCSService:
         blob = self.bucket.blob(gcs_path)
         return blob.public_url
 
-    def list_images(
-        self, category: str = "wardrobe", prefix: Optional[str] = None
-    ) -> list[str]:
+    def list_images(self, prefix: Optional[str] = None) -> list[str]:
         """
-        List images in a category folder.
+        List images with optional prefix filter.
 
         Args:
-            category: Category folder ('wardrobe' or 'dataset')
-            prefix: Optional prefix to filter by
+            prefix: Optional prefix to filter by (e.g., "images/wardrobe/")
 
         Returns:
             list[str]: List of GCS paths
         """
         try:
-            if category == "dataset":
-                storage_path = DATASET_IMAGES_PATH
-            else:
-                storage_path = WARDROBE_IMAGES_PATH
-
-            if prefix:
-                full_prefix = f"{storage_path}/{prefix}"
-            else:
-                full_prefix = f"{storage_path}/"
-
-            blobs = self.client.list_blobs(self.bucket, prefix=full_prefix)
+            blobs = self.client.list_blobs(self.bucket, prefix=prefix)
             return [blob.name for blob in blobs if blob.name.endswith(".jpg")]
 
         except Exception as e:

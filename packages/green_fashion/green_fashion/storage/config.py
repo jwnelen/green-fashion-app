@@ -17,16 +17,5 @@ GCS_IMAGE_BUCKET = os.getenv("GCS_IMAGE_BUCKET")
 # Current environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
-
-# # Get the bucket name
-# def get_bucket_name() -> str:
-#     """Get the bucket name from environment variable."""
-#     if not GCS_IMAGE_BUCKET:
-#         raise ValueError("GCS_BUCKET_NAME environment variable must be set")
-#     return GCS_IMAGE_BUCKET
-
-
-# Storage paths within buckets
+# Storage paths within buckets (kept for reference but no longer used by GCS service)
 IMAGES_PATH = "images"
-WARDROBE_IMAGES_PATH = f"{IMAGES_PATH}/wardrobe"
-DATASET_IMAGES_PATH = f"{IMAGES_PATH}/dataset"

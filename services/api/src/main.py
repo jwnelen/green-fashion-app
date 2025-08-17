@@ -36,7 +36,6 @@ class ClothingItem(BaseModel):
     custom_name: str
     category: str
     body_section: int
-    user_id: str
     notes: Optional[str] = ""
     colors: Optional[List[Dict]] = []
     display_name: Optional[str] = ""
@@ -265,9 +264,9 @@ async def upload_image(
         print(f"Debug: Attempting to save image with filename: {filename}")
 
         try:
-            image_path = gcs_service.save_image(
-                image=file.file, filename=filename, category="wardrobe"
-            )
+            # Construct the full blob path
+            blob_path = f"images/wardrobe/{filename}"
+            image_path = gcs_service.save_image(image=file.file, blob_path=blob_path)
             print(f"Debug: GCS save_image returned: {image_path}")
         except Exception as e:
             print(f"Debug: GCS save_image failed with error: {str(e)}")
@@ -280,10 +279,18 @@ async def upload_image(
                 status_code=500, detail="Failed to save image - no path returned"
             )
 
+        # Store the path relative to /images/ endpoint (remove "images/" prefix)
+        # API route is /images/{path}, so we store "wardrobe/filename.jpg"
+        stored_path = (
+            image_path.replace("images/", "", 1)
+            if image_path.startswith("images/")
+            else image_path
+        )
+
         # Update item with image path
         db_manager.update_item(
             item_id,
-            {"path": image_path, "display_name": file.filename},
+            {"path": stored_path, "display_name": file.filename},
             current_user_id,
         )
 
@@ -345,9 +352,10 @@ async def google_auth(auth_request: GoogleAuthRequest):
 async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
-        # Load image from GCS
-        print("loading image from", image_path)
-        image = gcs_service.load_image(image_path)
+        # Construct full GCS path (add "images/" prefix back)
+        full_gcs_path = f"images/{image_path}"
+        print("loading image from", full_gcs_path)
+        image = gcs_service.load_image(full_gcs_path)
         print("image loaded")
         # Convert PIL image to bytes
         img_byte_arr = io.BytesIO()
