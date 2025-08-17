@@ -44,7 +44,7 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
       }
 
       env {
-        name  = "GCS_BUCKET_NAME"
+        name  = "GCS_IMAGE_BUCKET"
         value = var.bucket_name
       }
 
@@ -176,7 +176,7 @@ resource "google_cloud_run_v2_service" "classifier_api" {
       }
 
       env {
-        name  = "GCS_BUCKET_NAME"
+        name  = "GCS_IMAGE_BUCKET"
         value = var.bucket_name
       }
 
