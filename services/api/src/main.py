@@ -12,10 +12,9 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from pydantic import BaseModel
-
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
+from pydantic import BaseModel
 
 app = FastAPI(
     title="Green Fashion Wardrobe API",
@@ -72,7 +71,7 @@ load_dotenv()
 
 MONGO_URI = os.getenv("MONGODB_URI")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-SECRET_KEY = os.getenv("SECRET_KEY")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
 # Initialize database connection
 db_manager = MongoDBManager(MONGO_URI)
@@ -84,7 +83,9 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(
+            credentials.credentials, GOOGLE_CLIENT_SECRET, algorithms=["HS256"]
+        )
         user_id = payload["user_id"]
         return user_id
     except jwt.InvalidTokenError:
@@ -320,7 +321,7 @@ async def google_auth(auth_request: GoogleAuthRequest):
                 "picture": user.get("picture"),
                 "exp": datetime.utcnow() + timedelta(days=7),
             },
-            SECRET_KEY,
+            GOOGLE_CLIENT_SECRET,
             algorithm="HS256",
         )
 

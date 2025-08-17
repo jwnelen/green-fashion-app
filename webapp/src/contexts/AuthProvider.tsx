@@ -39,9 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     sessionStorage.setItem(SESSION_KEY, token)
     try {
       const decodedUser = jwtDecode<DecodedUser>(token)
-      console.log(decodedUser)
       setUser(decodedUser)
-      console.log('User logged in successfully:', decodedUser.name || decodedUser.email)
     } catch (error) {
       console.error('Failed to decode token:', error)
       setUser(null)
@@ -67,7 +65,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [])
 
   const getUser = useCallback((): DecodedUser | null => {
-    console.log(user)
     return user
   }, [user])
 

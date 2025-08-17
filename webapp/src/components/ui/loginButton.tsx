@@ -13,7 +13,7 @@ export default function LoginButton() {
     }
 
     try {
-      const authResponse = await api.addUserToDataBase(response)
+      const authResponse = await api.addUserToDataBase({ credential: token })
       console.log('Auth successful:', authResponse)
       saveToken(authResponse.token)
     } catch (error) {
