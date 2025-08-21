@@ -588,10 +588,12 @@ dependencies = [
     { name = "fastapi" },
     { name = "google-auth" },
     { name = "green-fashion" },
+    { name = "pillow" },
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
+    { name = "scikit-learn" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -612,10 +614,12 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "google-auth", specifier = ">=2.40.3" },
     { name = "green-fashion", editable = "../../packages/green_fashion" },
+    { name = "pillow", specifier = ">=11.3.0" },
     { name = "pydantic", specifier = ">=2.4.0" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "python-multipart", specifier = ">=0.0.6" },
+    { name = "scikit-learn", specifier = ">=1.7.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.24.0" },
 ]
 

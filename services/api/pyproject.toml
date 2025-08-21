@@ -12,6 +12,8 @@ dependencies = [
     "pyjwt>=2.10.1",
     "google-auth>=2.40.3",
     "python-dotenv>=1.1.1",
+    "pillow>=11.3.0",
+    "scikit-learn>=1.7.1",
 ]
 
 [build-system]

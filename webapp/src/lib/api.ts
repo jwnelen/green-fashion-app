@@ -4,10 +4,19 @@ export interface ClothingItem {
   category: string;
   body_section: number;
   notes?: string;
-  colors?: Array<{ color: string; percentage: number }>;
+  colors?: Array<{ color: number[]; percentage: number }>;
   display_name?: string;
   path?: string;
   image_url?: string;
+}
+
+export interface ColorPalette {
+  color: number[]; // RGB values [r, g, b]
+  percentage: number;
+}
+
+export interface ColorExtractionResponse {
+  colors: ColorPalette[];
 }
 
 export interface UpdateClothingItem {
@@ -15,7 +24,7 @@ export interface UpdateClothingItem {
   category?: string;
   body_section?: number;
   notes?: string;
-  colors?: Array<{ color: string; percentage: number }>;
+  colors?: Array<{ color: number[]; percentage: number }>;
 }
 
 export interface ApiResponse<T> {
@@ -139,6 +148,33 @@ class ApiService {
 
   async healthCheck(): Promise<{ status: string; database: string }> {
     return this.request<{ status: string; database: string }>('/health');
+  }
+
+  async extractColors(file: File, nColors: number = 5): Promise<ColorExtractionResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('n_colors', nColors.toString());
+
+    // Get token for authenticated request
+    const token = sessionStorage.getItem('googleToken');
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/extract-colors`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
   }
 }
 
