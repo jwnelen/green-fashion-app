@@ -80,23 +80,32 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
   };
 
-  const displayColorPalette = (colors: Array<{ color: string; percentage: number }>) => {
+  const displayColorPalette = (colors: Array<{ color: number[] | string; percentage: number }>) => {
     if (!colors || colors.length === 0) return null;
 
     return (
       <div className="flex gap-1 mt-2">
         {colors.slice(0, 5).map((colorInfo, index) => {
-          const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (!rgbMatch) return null;
+          let backgroundColor = '';
 
-          const [, r, g, b] = rgbMatch;
-          const hexColor = `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+          if (Array.isArray(colorInfo.color)) {
+            // New format: RGB array [r, g, b]
+            const [r, g, b] = colorInfo.color;
+            backgroundColor = `rgb(${r}, ${g}, ${b})`;
+          } else if (typeof colorInfo.color === 'string') {
+            // Legacy format: RGB string "rgb(r, g, b)"
+            const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!rgbMatch) return null;
+            backgroundColor = colorInfo.color;
+          } else {
+            return null;
+          }
 
           return (
             <div
               key={index}
               className="w-4 h-4 rounded-full border border-gray-300"
-              style={{ backgroundColor: hexColor }}
+              style={{ backgroundColor }}
               title={`${colorInfo.percentage.toFixed(1)}%`}
             />
           );

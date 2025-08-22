@@ -13,9 +13,12 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from PIL import Image
+from pydantic import BaseModel
+
+from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
-from pydantic import BaseModel
 
 app = FastAPI(
     title="Green Fashion Wardrobe API",
@@ -65,6 +68,15 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     user: UserResponse
+
+
+class ColorPalette(BaseModel):
+    color: List[int]  # RGB values [r, g, b]
+    percentage: float
+
+
+class ColorExtractionResponse(BaseModel):
+    colors: List[ColorPalette]
 
 
 load_dotenv()
@@ -288,6 +300,50 @@ async def upload_image(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/extract-colors", response_model=ColorExtractionResponse)
+async def extract_colors(
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user),
+):
+    """Extract color palette from an uploaded image"""
+    try:
+        # Validate file type
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+
+        # Create PIL Image from uploaded file
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+
+        # Save temporarily to extract colors (the function expects a file path)
+        temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+        image.save(temp_path)
+
+        try:
+            # Extract color palette
+            palette = extract_color_palette(temp_path)
+
+            # Convert to response format
+            colors = [
+                ColorPalette(color=color.tolist(), percentage=percentage)
+                for color, percentage in palette
+            ]
+
+            return ColorExtractionResponse(colors=colors)
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Color extraction failed: {str(e)}"
+        )
 
 
 @app.post("/api/auth/google", response_model=AuthResponse)
