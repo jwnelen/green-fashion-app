@@ -4,15 +4,11 @@ from collections import Counter
 import numpy as np
 from PIL import Image
 from rembg import remove
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.preprocessing import StandardScaler
 
 
 def extract_color_palette(_image_path, resize_width=150, alpha_threshold=128):
     image = Image.open(_image_path)
     image = remove_background(image)
-
-    print("hello world")
 
     if image.mode != "RGBA":
         image = image.convert("RGBA")
@@ -38,6 +34,10 @@ def extract_color_palette(_image_path, resize_width=150, alpha_threshold=128):
         foreground_mask = pixels_rgba[:, 3] > 0
 
     pixels = pixels_rgba[foreground_mask][:, :3]
+
+    # Lazy import sklearn to avoid blocking application startup
+    from sklearn.cluster import AgglomerativeClustering
+    from sklearn.preprocessing import StandardScaler
 
     scaler = StandardScaler()
     pixels_scaled = scaler.fit_transform(pixels)
