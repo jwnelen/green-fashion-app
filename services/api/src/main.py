@@ -13,11 +13,12 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from PIL import Image
+from pydantic import BaseModel
+
+from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
-from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
-from pydantic import BaseModel
-from PIL import Image
 
 app = FastAPI(
     title="Green Fashion Wardrobe API",
@@ -304,7 +305,6 @@ async def upload_image(
 @app.post("/extract-colors", response_model=ColorExtractionResponse)
 async def extract_colors(
     file: UploadFile = File(...),
-    n_colors: int = 5,
     current_user_id: str = Depends(get_current_user),
 ):
     """Extract color palette from an uploaded image"""
@@ -323,7 +323,7 @@ async def extract_colors(
 
         try:
             # Extract color palette
-            palette = extract_color_palette(temp_path, n_colors=n_colors)
+            palette = extract_color_palette(temp_path)
 
             # Convert to response format
             colors = [

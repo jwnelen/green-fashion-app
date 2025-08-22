@@ -1,27 +1,56 @@
+import io
 from collections import Counter
 
 import numpy as np
 from PIL import Image
-from sklearn.cluster import KMeans
+from rembg import remove
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.preprocessing import StandardScaler
 
 
-def extract_color_palette(_image_path, n_colors=5, resize_width=150):
+def extract_color_palette(_image_path, resize_width=150, alpha_threshold=128):
     image = Image.open(_image_path)
-    if image.mode != "RGB":
-        image = image.convert("RGB")
+    image = remove_background(image)
+
+    print("hello world")
+
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
 
     original_width, original_height = image.size
     aspect_ratio = original_height / original_width
     resize_height = int(resize_width * aspect_ratio)
     image = image.resize((resize_width, resize_height), Image.Resampling.LANCZOS)
 
-    pixels = np.array(image).reshape(-1, 3)
+    pixels_rgba = np.array(image).reshape(-1, 4)
 
-    kmeans = KMeans(n_clusters=n_colors, random_state=42, n_init=10)
-    kmeans.fit(pixels)
+    # Getting the correct htreshold
+    foreground_mask = pixels_rgba[:, 3] > alpha_threshold
 
-    colors = kmeans.cluster_centers_.astype(int)
-    labels = kmeans.labels_
+    if not np.any(foreground_mask):
+        print("Warning: No foreground pixels found. Lowering alpha threshold.")
+        foreground_mask = pixels_rgba[:, 3] > 64  # Fallback threshold
+
+    if not np.any(foreground_mask):
+        print(
+            "Warning: Still no foreground pixels found. Using all non-zero alpha pixels."
+        )
+        foreground_mask = pixels_rgba[:, 3] > 0
+
+    pixels = pixels_rgba[foreground_mask][:, :3]
+
+    scaler = StandardScaler()
+    pixels_scaled = scaler.fit_transform(pixels)
+
+    clustering = AgglomerativeClustering(
+        n_clusters=None, distance_threshold=100, linkage="ward"
+    )
+    labels = clustering.fit_predict(pixels_scaled)
+
+    unique_labels = np.unique(labels)
+    colors = np.array(
+        [pixels[labels == label].mean(axis=0) for label in unique_labels]
+    ).astype(int)
 
     color_counts = Counter(labels)
     color_percentages = [(count / len(labels)) * 100 for count in color_counts.values()]
@@ -30,6 +59,17 @@ def extract_color_palette(_image_path, n_colors=5, resize_width=150):
     palette.sort(key=lambda x: x[1], reverse=True)
 
     return palette
+
+
+def remove_background(image: Image.Image) -> Image.Image:
+    # Convert PIL image to bytes
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format="PNG")
+    img_byte_arr = img_byte_arr.getvalue()
+
+    # Remove background and return as PIL Image
+    result = remove(img_byte_arr)
+    return Image.open(io.BytesIO(result))
 
 
 # def plot_palette(palette, selected_indices=None):
