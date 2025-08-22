@@ -112,8 +112,13 @@ async def root():
 @app.get("/health")
 async def health_check():
     if not db_manager.client:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    return {"status": "healthy", "database": "connected"}
+        return {"status": "starting", "database": "connecting"}
+    try:
+        # Test the connection with a simple ping
+        db_manager.client.admin.command("ping")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "degraded", "database": "connection_error", "error": str(e)}
 
 
 @app.get("/items", response_model=List[Dict])

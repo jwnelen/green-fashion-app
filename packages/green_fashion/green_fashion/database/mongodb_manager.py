@@ -53,9 +53,9 @@ class MongoDBManager:
         try:
             self.client = MongoClient(
                 self.mongodb_uri,
-                serverSelectionTimeoutMS=4000,  # 2 second timeout
-                connectTimeoutMS=4000,  # 2 second connection timeout
-                socketTimeoutMS=4000,  # 2 second socket timeout
+                serverSelectionTimeoutMS=15000,  # 15 second timeout for Cloud Run
+                connectTimeoutMS=15000,  # 15 second connection timeout
+                socketTimeoutMS=15000,  # 15 second socket timeout
             )
             self.db = self.client[self.database_name]
             self.clothing_items_db = self.db[CLOTHING_ITEMS_DB_NAME]
