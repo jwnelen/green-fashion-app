@@ -83,6 +83,38 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
   const displayColorPalette = (colors: Array<{ color: number[] | string; percentage: number }>) => {
     if (!colors || colors.length === 0) return null;
 
+    const toHex = (value: any): string | null => {
+      // string: '#rrggbb'
+      if (typeof value === 'string') {
+        const s = value.trim();
+        if (s.startsWith('#') && (s.length === 7 || s.length === 4)) return s;
+        const m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+        if (m) {
+          const [, r, g, b] = m;
+          const toHex2 = (n: string | number) => Number(n).toString(16).padStart(2, '0');
+          return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+        }
+        return null;
+      }
+      // array: [r,g,b]
+      if (Array.isArray(value) && value.length >= 3) {
+        const [r, g, b] = value;
+        const toHex2 = (n: number) => Number(n).toString(16).padStart(2, '0');
+        return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+      }
+      // object: {r,g,b} or {red,green,blue}
+      if (value && typeof value === 'object') {
+        const r = (value.r ?? value.red);
+        const g = (value.g ?? value.green);
+        const b = (value.b ?? value.blue);
+        if ([r, g, b].every((n) => typeof n === 'number')) {
+          const toHex2 = (n: number) => Number(n).toString(16).padStart(2, '0');
+          return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+        }
+      }
+      return null;
+    };
+
     return (
       <div className="flex gap-1 mt-2">
         {colors.slice(0, 5).map((colorInfo, index) => {
