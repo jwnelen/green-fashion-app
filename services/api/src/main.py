@@ -1,5 +1,6 @@
 import io
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
@@ -12,14 +13,17 @@ from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from green_fashion.database.mongodb_manager import MongoDBManager
-from green_fashion.storage.gcs_service import get_gcs_service
+from PIL import Image
 from pydantic import BaseModel
+
+from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
+from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.logging_utils import (
-    setup_logging,
     logger,
     request_context_middleware,
+    setup_logging,
 )
+from green_fashion.storage.gcs_service import get_gcs_service
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -77,16 +81,50 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
+class ColorPalette(BaseModel):
+    color: List[int]  # RGB values [r, g, b]
+    percentage: float
+
+
+class ColorExtractionResponse(BaseModel):
+    colors: List[ColorPalette]
+
+
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGODB_URI")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
-# Initialize database connection
-db_manager = MongoDBManager(MONGO_URI)
-gcs_service = get_gcs_service(BUCKET_NAME)
+
+# Global variables for lazy initialization
+_db_manager = None
+_gcs_service = None
 security = HTTPBearer()
+
+
+def get_db_manager():
+    """Get database manager with lazy initialization"""
+    global _db_manager
+    if _db_manager is None:
+        try:
+            _db_manager = MongoDBManager(MONGO_URI)
+        except Exception as e:
+            print(f"Failed to initialize database manager: {e}")
+            _db_manager = None
+    return _db_manager
+
+
+def get_gcs_service_instance():
+    """Get GCS service with lazy initialization"""
+    global _gcs_service
+    if _gcs_service is None:
+        try:
+            _gcs_service = get_gcs_service(BUCKET_NAME)
+        except Exception as e:
+            print(f"Failed to initialize GCS service: {e}")
+            _gcs_service = None
+    return _gcs_service
 
 
 async def get_current_user(
@@ -109,9 +147,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    if not db_manager.client:
-        raise HTTPException(status_code=503, detail="Database connection failed")
-    return {"status": "healthy", "database": "connected"}
+    db_manager = get_db_manager()
+    if not db_manager or not db_manager.client:
+        return {"status": "starting", "database": "connecting"}
+    try:
+        # Test the connection with a simple ping
+        db_manager.client.admin.command("ping")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "degraded", "database": "connection_error", "error": str(e)}
 
 
 @app.get("/items", response_model=List[Dict])
@@ -119,6 +163,9 @@ async def get_all_items(current_user_id: str = Depends(get_current_user)):
     """Get all clothing items"""
     logger.bind(user_id=current_user_id).info("Fetching all items")
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         return db_manager.get_all_items(current_user_id)
     except Exception as e:
         logger.exception("Failed to get all items: {error}", error=str(e))
@@ -129,6 +176,9 @@ async def get_all_items(current_user_id: str = Depends(get_current_user)):
 async def get_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Get a specific clothing item by ID"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
@@ -146,6 +196,9 @@ async def create_item(
 ):
     """Create a new clothing item"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         item_data = item.dict()
         item_data["user_id"] = current_user_id
         item_id = db_manager.add_clothing_item(item_data)
@@ -166,6 +219,9 @@ async def update_item(
 ):
     """Update an existing clothing item"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         update_data = {k: v for k, v in updates.dict().items() if v is not None}
         if not update_data:
             raise HTTPException(status_code=400, detail="No valid updates provided")
@@ -188,6 +244,9 @@ async def update_item(
 async def delete_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Delete a clothing item"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         # Get item first to access image path if it exists
         item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
@@ -203,7 +262,9 @@ async def delete_item(item_id: str, current_user_id: str = Depends(get_current_u
         # Delete image from GCS if it exists
         if item.get("path"):
             try:
-                gcs_service.delete_image(item["path"])
+                gcs_service = get_gcs_service_instance()
+                if gcs_service:
+                    gcs_service.delete_image(item["path"])
             except Exception as e:
                 logger.warning(
                     "Failed to delete image from storage: {error}", error=str(e)
@@ -225,6 +286,9 @@ async def get_items_by_category(
 ):
     """Get all items in a specific category"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         items = db_manager.get_items_by_category(category, current_user_id)
         return items
     except Exception as e:
@@ -240,6 +304,9 @@ async def get_items_by_category(
 async def get_categories(current_user_id: str = Depends(get_current_user)):
     """Get all unique categories"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         categories = db_manager.get_categories(current_user_id)
         return {"categories": categories}
     except Exception as e:
@@ -253,6 +320,9 @@ async def search_items(query: str, current_user_id: str = Depends(get_current_us
     try:
         if not query.strip():
             raise HTTPException(status_code=400, detail="Search query cannot be empty")
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         items = db_manager.search_items(query, current_user_id)
         return items
     except Exception as e:
@@ -266,6 +336,9 @@ async def search_items(query: str, current_user_id: str = Depends(get_current_us
 async def get_stats(current_user_id: str = Depends(get_current_user)):
     """Get wardrobe statistics"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         total_items = db_manager.get_item_count(current_user_id)
         category_counts = db_manager.get_category_counts(current_user_id)
         return {"total_items": total_items, "category_counts": category_counts}
@@ -282,6 +355,9 @@ async def upload_image(
 ):
     """Upload an image for a clothing item"""
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
         # Check if item exists
         item = db_manager.get_item_by_id(item_id, current_user_id)
         if not item:
@@ -291,19 +367,20 @@ async def upload_image(
         if not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image")
 
-        # Save image to GCS using display_name (original filename)
-        # Remove file extension from display_name and clean it up
-        base_filename = (
-            file.filename.rsplit(".", 1)[0] if "." in file.filename else file.filename
-        )
-        filename = base_filename.replace(" ", "_").lower()
+        # Generate unique ID for the filename to hide original name
+        unique_id = str(uuid.uuid4())
         logger.debug(
-            "Attempting to save image with filename: {filename}", filename=filename
+            "Attempting to save image with id: {unique_id}", unique_id=unique_id
         )
 
         try:
-            # Construct the full blob path
-            blob_path = f"images/wardrobe/{filename}"
+            gcs_service = get_gcs_service_instance()
+            if not gcs_service:
+                raise HTTPException(
+                    status_code=503, detail="Storage service not available"
+                )
+            # Construct the full blob path using unique ID
+            blob_path = f"images/wardrobe/{unique_id}"
             image_path = gcs_service.save_image(image=file.file, blob_path=blob_path)
             logger.debug("GCS save_image returned: {image_path}", image_path=image_path)
         except Exception as e:
@@ -334,9 +411,57 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/extract-colors", response_model=ColorExtractionResponse)
+async def extract_colors(
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user),
+):
+    """Extract color palette from an uploaded image"""
+    try:
+        # Validate file type
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+
+        # Create PIL Image from uploaded file
+        image_data = await file.read()
+        image = Image.open(io.BytesIO(image_data))
+
+        # Save temporarily to extract colors (the function expects a file path)
+        temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+        image.save(temp_path)
+
+        try:
+            # Extract color palette
+            palette = extract_color_palette(temp_path)
+
+            # Convert to response format
+            colors = [
+                ColorPalette(color=color.tolist(), percentage=percentage)
+                for color, percentage in palette
+            ]
+
+            return ColorExtractionResponse(colors=colors)
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Color extraction failed: {str(e)}"
+        )
+
+
 @app.post("/api/auth/google", response_model=AuthResponse)
 async def google_auth(auth_request: GoogleAuthRequest):
     try:
+        db_manager = get_db_manager()
+        if not db_manager:
+            raise HTTPException(status_code=503, detail="Database not available")
+
         idinfo = id_token.verify_oauth2_token(
             auth_request.token, requests.Request(), GOOGLE_CLIENT_ID
         )
@@ -386,6 +511,9 @@ async def google_auth(auth_request: GoogleAuthRequest):
 async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
+        gcs_service = get_gcs_service_instance()
+        if not gcs_service:
+            raise HTTPException(status_code=503, detail="Storage service not available")
         # Construct full GCS path (add "images/" prefix back)
         logger.debug("Loading image from {path}", path=image_path)
         image = gcs_service.load_image(image_path)

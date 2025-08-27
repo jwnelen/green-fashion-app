@@ -80,7 +80,7 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
   };
 
-  const displayColorPalette = (colors: Array<any>) => {
+  const displayColorPalette = (colors: Array<{ color: number[] | string; percentage: number }>) => {
     if (!colors || colors.length === 0) return null;
 
     const toHex = (value: any): string | null => {
@@ -117,25 +117,28 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
 
     return (
       <div className="flex gap-1 mt-2">
-        {colors.slice(0, 5).map((entry, index) => {
-          // Support both { color, percentage } and [color, percentage]
-          const colorValue = entry?.color ?? (Array.isArray(entry) ? entry[0] : undefined);
-          const percentageValue: number | undefined =
-            typeof entry?.percentage === 'number'
-              ? entry.percentage
-              : Array.isArray(entry) && typeof entry[1] === 'number'
-                ? entry[1]
-                : undefined;
+        {colors.slice(0, 5).map((colorInfo, index) => {
+          let backgroundColor = '';
 
-          const hexColor = toHex(colorValue);
-          if (!hexColor) return null;
+          if (Array.isArray(colorInfo.color)) {
+            // New format: RGB array [r, g, b]
+            const [r, g, b] = colorInfo.color;
+            backgroundColor = `rgb(${r}, ${g}, ${b})`;
+          } else if (typeof colorInfo.color === 'string') {
+            // Legacy format: RGB string "rgb(r, g, b)"
+            const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!rgbMatch) return null;
+            backgroundColor = colorInfo.color;
+          } else {
+            return null;
+          }
 
           return (
             <div
               key={index}
               className="w-4 h-4 rounded-full border border-gray-300"
-              style={{ backgroundColor: hexColor }}
-              title={percentageValue !== undefined ? `${percentageValue.toFixed(1)}%` : undefined}
+              style={{ backgroundColor }}
+              title={`${colorInfo.percentage.toFixed(1)}%`}
             />
           );
         })}

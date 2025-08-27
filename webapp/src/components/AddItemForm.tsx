@@ -5,9 +5,9 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { api } from '../lib/api';
 
-import type { ClothingItem } from '../lib/api';
+import type { ClothingItem, ColorPalette } from '../lib/api';
 import { CLOTHING_CATEGORIES, BODY_SECTIONS, type ClothingCategory } from '../lib/constants';
-import { Upload, Plus } from 'lucide-react';
+import { Upload, Plus, Palette } from 'lucide-react';
 
 interface AddItemFormProps {
   onItemAdded?: () => void;
@@ -30,6 +30,9 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [classificationResult, setClassificationResult] = useState<string | null>(null);
+  const [extractedColors, setExtractedColors] = useState<ColorPalette[]>([]);
+  const [colorExtractionLoading, setColorExtractionLoading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // classifierAPI.healthCheck().then(s => console.log(s))
 
@@ -48,29 +51,30 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
         setSelectedFile(file);
         setError(null);
         setClassificationResult(null);
+        setExtractedColors([]);
 
-        // try {
-        //   const result = await classifierAPI.classifyImage(file);
-        //   const classifiedCategory = result.message.toLowerCase();
+        // Create image preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
 
-        //   // Check if the classified category exists in our categories list
-        //   if (CLOTHING_CATEGORIES.includes(classifiedCategory as ClothingCategory)) {
-        //     setClassificationResult(classifiedCategory);
-        //     // Automatically select the classified category
-        //     setFormData(prev => ({
-        //       ...prev,
-        //       category: classifiedCategory as ClothingCategory
-        //     }));
-        //   } else {
-        //     setClassificationResult(classifiedCategory);
-        //   }
-        // } catch (classificationError) {
-        //   console.warn('Classification failed:', classificationError);
-        // }
-
+        // Extract colors from the selected image
+        setColorExtractionLoading(true);
+        try {
+          const colorResult = await api.extractColors(file);
+          setExtractedColors(colorResult.colors);
+        } catch (colorError) {
+          console.warn('Color extraction failed:', colorError);
+          // Don't show error to user, just log it
+        } finally {
+          setColorExtractionLoading(false);
+        }
       } else {
         setError('Please select a valid image file');
         setSelectedFile(null);
+        setImagePreview(null);
       }
     }
   };
@@ -86,6 +90,8 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
     setError(null);
     setSuccess(null);
     setClassificationResult(null);
+    setExtractedColors([]);
+    setImagePreview(null);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -106,7 +112,7 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
         category: formData.category,
         body_section: formData.body_section,
         notes: formData.notes || '',
-        colors: [],
+        colors: extractedColors,
         display_name: selectedFile?.name || formData.custom_name,
         path: undefined,
       };
@@ -213,32 +219,95 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
             <label htmlFor="image" className="text-sm font-medium">
               Image (optional)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-              <div className="text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <div className="mt-4">
-                  <label htmlFor="image" className="cursor-pointer">
-                    <span className="text-sm font-medium text-blue-600 hover:text-blue-500">
-                      Click to upload
-                    </span>
-                    <input
-                      id="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  <p className="text-xs text-gray-500">PNG, JPG, JPEG up to 10MB</p>
+            <div className="border-2 border-gray-300 rounded-lg p-6">
+              {imagePreview ? (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full object-cover rounded-lg"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setImagePreview(null);
+                        setExtractedColors([]);
+                        const input = document.getElementById('image') as HTMLInputElement;
+                        if (input) input.value = '';
+                      }}
+                      className="w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {selectedFile && (
+                    <div className="mt-2 text-sm text-gray-600 text-center">
+                      {selectedFile.name}
+                    </div>
+                  )}
                 </div>
-                {selectedFile && (
-                  <div className="mt-2 text-sm text-gray-600">
-                    Selected: {selectedFile.name}
+              ) : (
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-4">
+                    <label htmlFor="image" className="cursor-pointer">
+                      <span className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                        Click to upload
+                      </span>
+                      <input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500">PNG, JPG, JPEG up to 10MB</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Color Palette Display */}
+          {(extractedColors.length > 0 || colorExtractionLoading) && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Palette className="w-4 h-4" />
+                Extracted Colors
+              </label>
+              <div className="border rounded-lg p-4">
+                {colorExtractionLoading ? (
+                  <div className="text-center text-sm text-gray-500">
+                    Extracting colors from image...
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {extractedColors.map((colorPalette, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{
+                              backgroundColor: `rgb(${colorPalette.color[0]}, ${colorPalette.color[1]}, ${colorPalette.color[2]})`
+                            }}
+                          />
+                          <span className="text-xs text-gray-600">
+                            {colorPalette.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Colors will be automatically saved with this item
+                    </p>
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm">

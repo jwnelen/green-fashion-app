@@ -49,6 +49,9 @@ COPY --from=builder --chown=app:app /project/services/api/.venv ./.venv
 # Copy packages directory to project root
 COPY --chown=app:app packages/ /project/packages/
 
+# Copy dependency files for uv
+COPY --chown=app:app services/api/pyproject.toml services/api/uv.lock ./
+
 # Copy application code
 COPY --chown=app:app services/api/src/ ./src/
 
