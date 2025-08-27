@@ -116,14 +116,39 @@ def setup_logging(
 
     # Console / stdout sink
     if json_logs:
+        # Emit JSON compatible with GCP Cloud Logging expectations
+        def gcp_json_sink(message):
+            rec = message.record
+            lvl = rec["level"].name
+            # Map Loguru levels to GCP severities
+            severity_map = {
+                "TRACE": "DEBUG",
+                "DEBUG": "DEBUG",
+                "INFO": "INFO",
+                "SUCCESS": "NOTICE",
+                "WARNING": "WARNING",
+                "ERROR": "ERROR",
+                "CRITICAL": "CRITICAL",
+            }
+            payload = {
+                "severity": severity_map.get(lvl, "INFO"),
+                "message": rec["message"],
+                "service": rec["extra"].get("service"),
+                "request_id": rec["extra"].get("request_id"),
+                "user_id": rec["extra"].get("user_id"),
+                "logger": rec["name"],
+                "function": rec["function"],
+                "line": rec["line"],
+                "time": rec["time"].isoformat(),
+            }
+            sys.stdout.write(json.dumps(payload) + "\n")
+
         _logger.add(
-            sys.stdout,
+            gcp_json_sink,
             level=level,
-            serialize=True,
             backtrace=False,
             diagnose=False,
             enqueue=enqueue,
-            filter=lambda r: True,
         )
     else:
         _logger.add(
