@@ -35,16 +35,16 @@ repos:
       args: [--project, services/ml-api]
 - repo: local
   hooks:
-    - id: vite-build-check
-      name: Check Vite build
-      entry: bash -c "cd webapp && /opt/homebrew/bin/node /opt/homebrew/bin/npm run build"
-      language: system
-      pass_filenames: false
-      files: ^webapp/.*\.(js|jsx|ts|tsx|vue|css|scss|json)$
-    - id: vite-type-check
-      name: TypeScript type check
-      entry: bash -c "cd webapp && /opt/homebrew/bin/node /opt/homebrew/bin/npm exec tsc -- --noEmit"
-      language: system
-      pass_filenames: false
-      files: ^webapp/.*\.(ts|tsx)$
-      require_serial: true
+  - id: vite-build-check
+    name: Check Vite build
+    entry: bash -c "cd webapp && npm run build"
+    language: system
+    pass_filenames: false
+    files: ^webapp/.*\.(js|jsx|ts|tsx|vue|css|scss|json)$
+  - id: vite-type-check
+    name: TypeScript type check
+    entry: bash -c "cd webapp && npx tsc --noEmit"
+    language: system
+    pass_filenames: false
+    files: ^webapp/.*\.(ts|tsx)$
+    require_serial: true
