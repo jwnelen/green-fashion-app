@@ -15,6 +15,14 @@ from google.oauth2 import id_token
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.storage.gcs_service import get_gcs_service
 from pydantic import BaseModel
+from green_fashion.logging_utils import (
+    setup_logging,
+    logger,
+    request_context_middleware,
+)
+
+# Initialize logging early
+setup_logging(service_name="api")
 
 app = FastAPI(
     title="Green Fashion Wardrobe API",
@@ -29,6 +37,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request context and access logging
+app.middleware("http")(request_context_middleware)
 
 
 # Pydantic models
@@ -106,10 +117,11 @@ async def health_check():
 @app.get("/items", response_model=List[Dict])
 async def get_all_items(current_user_id: str = Depends(get_current_user)):
     """Get all clothing items"""
-    print(f"getting all items for {current_user_id}")
+    logger.bind(user_id=current_user_id).info("Fetching all items")
     try:
         return db_manager.get_all_items(current_user_id)
     except Exception as e:
+        logger.exception("Failed to get all items: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -122,6 +134,9 @@ async def get_item(item_id: str, current_user_id: str = Depends(get_current_user
             raise HTTPException(status_code=404, detail="Item not found")
         return item
     except Exception as e:
+        logger.exception(
+            "Failed to get item {item_id}: {error}", item_id=item_id, error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -136,8 +151,10 @@ async def create_item(
         item_id = db_manager.add_clothing_item(item_data)
         if not item_id:
             raise HTTPException(status_code=500, detail="Failed to create item")
+        logger.bind(user_id=current_user_id).info("Item created", item_id=item_id)
         return {"id": item_id, "message": "Item created successfully"}
     except Exception as e:
+        logger.exception("Failed to create item: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -158,8 +175,12 @@ async def update_item(
             raise HTTPException(
                 status_code=404, detail="Item not found or update failed"
             )
+        logger.bind(user_id=current_user_id).info("Item updated", item_id=item_id)
         return {"message": "Item updated successfully"}
     except Exception as e:
+        logger.exception(
+            "Failed to update item {item_id}: {error}", item_id=item_id, error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -184,12 +205,17 @@ async def delete_item(item_id: str, current_user_id: str = Depends(get_current_u
             try:
                 gcs_service.delete_image(item["path"])
             except Exception as e:
-                print(f"Warning: Failed to delete image from storage: {str(e)}")
+                logger.warning(
+                    "Failed to delete image from storage: {error}", error=str(e)
+                )
 
         return {"message": "Item deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(
+            "Failed to delete item {item_id}: {error}", item_id=item_id, error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -202,6 +228,11 @@ async def get_items_by_category(
         items = db_manager.get_items_by_category(category, current_user_id)
         return items
     except Exception as e:
+        logger.exception(
+            "Failed to get items by category {category}: {error}",
+            category=category,
+            error=str(e),
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -212,6 +243,7 @@ async def get_categories(current_user_id: str = Depends(get_current_user)):
         categories = db_manager.get_categories(current_user_id)
         return {"categories": categories}
     except Exception as e:
+        logger.exception("Failed to get categories: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -224,6 +256,9 @@ async def search_items(query: str, current_user_id: str = Depends(get_current_us
         items = db_manager.search_items(query, current_user_id)
         return items
     except Exception as e:
+        logger.exception(
+            "Search failed for query '{query}': {error}", query=query, error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -235,6 +270,7 @@ async def get_stats(current_user_id: str = Depends(get_current_user)):
         category_counts = db_manager.get_category_counts(current_user_id)
         return {"total_items": total_items, "category_counts": category_counts}
     except Exception as e:
+        logger.exception("Failed to get stats: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -261,15 +297,17 @@ async def upload_image(
             file.filename.rsplit(".", 1)[0] if "." in file.filename else file.filename
         )
         filename = base_filename.replace(" ", "_").lower()
-        print(f"Debug: Attempting to save image with filename: {filename}")
+        logger.debug(
+            "Attempting to save image with filename: {filename}", filename=filename
+        )
 
         try:
             # Construct the full blob path
             blob_path = f"images/wardrobe/{filename}"
             image_path = gcs_service.save_image(image=file.file, blob_path=blob_path)
-            print(f"Debug: GCS save_image returned: {image_path}")
+            logger.debug("GCS save_image returned: {image_path}", image_path=image_path)
         except Exception as e:
-            print(f"Debug: GCS save_image failed with error: {str(e)}")
+            logger.exception("GCS save_image failed: {error}", error=str(e))
             raise HTTPException(
                 status_code=500, detail=f"Failed to save image to GCS: {str(e)}"
             )
@@ -290,6 +328,9 @@ async def upload_image(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception(
+            "Image upload failed for {item_id}: {error}", item_id=item_id, error=str(e)
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -337,6 +378,7 @@ async def google_auth(auth_request: GoogleAuthRequest):
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid Google token")
     except Exception as e:
+        logger.exception("Authentication failed: {error}", error=str(e))
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 
@@ -345,9 +387,9 @@ async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
         # Construct full GCS path (add "images/" prefix back)
-        print("loading image from", image_path)
+        logger.debug("Loading image from {path}", path=image_path)
         image = gcs_service.load_image(image_path)
-        print("image loaded")
+        logger.debug("Image loaded")
         # Convert PIL image to bytes
         img_byte_arr = io.BytesIO()
         image.save(img_byte_arr, format="JPEG", quality=95)
@@ -360,6 +402,7 @@ async def get_image(image_path: str):
             headers={"Cache-Control": "max-age=3600"},  # Cache for 1 hour
         )
     except Exception as e:
+        logger.exception("Image not found: {error}", error=str(e))
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
 
 

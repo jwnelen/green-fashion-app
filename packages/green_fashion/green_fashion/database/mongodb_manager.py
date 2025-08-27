@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 from bson import ObjectId
 from pymongo import MongoClient
+from loguru import logger
 
 from .config import (
     CLOTHING_ITEMS_DB_NAME,
@@ -65,7 +66,7 @@ class MongoDBManager:
             self.client.server_info()
             return True
         except Exception as e:
-            print(f"Failed to connect to MongoDB: {str(e)}")
+            logger.exception("Failed to connect to MongoDB: {error}", error=str(e))
             self.connection_error = str(e)
             self.client = None
             self.db = None
@@ -83,7 +84,7 @@ class MongoDBManager:
         try:
             WARDROBE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            print(f"Error creating image directory: {str(e)}")
+            logger.warning("Error creating image directory: {error}", error=str(e))
 
     # CRUD Operations
 
@@ -105,7 +106,7 @@ class MongoDBManager:
             result = self.clothing_items_db.insert_one(item_data)
             return str(result.inserted_id)
         except Exception as e:
-            print(f"Error adding item: {str(e)}")
+            logger.exception("Error adding item: {error}", error=str(e))
             return None
 
     def get_all_items(self, user_id) -> List[Dict]:
@@ -117,14 +118,14 @@ class MongoDBManager:
         """
         try:
             items = list(self.clothing_items_db.find({"user_id": ObjectId(user_id)}))
-            print(f"retrieved {len(items)} items")
+            logger.debug("Retrieved {count} items", count=len(items))
             for item in items:
                 item["_id"] = str(item["_id"])
                 if "user_id" in item:
                     item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
-            print(f"Error fetching items: {str(e)}")
+            logger.exception("Error fetching items: {error}", error=str(e))
             return []
 
     def get_item_by_id(self, item_id: str, user_id: str = None) -> Optional[Dict]:
@@ -149,7 +150,7 @@ class MongoDBManager:
                     item["user_id"] = str(item["user_id"])
             return item
         except Exception as e:
-            print(f"Error fetching item: {str(e)}")
+            logger.exception("Error fetching item: {error}", error=str(e))
             return None
 
     def update_item(self, item_id: str, updates: Dict, user_id: str = None) -> bool:
@@ -172,7 +173,7 @@ class MongoDBManager:
             result = self.clothing_items_db.update_one(query, {"$set": updates})
             return result.modified_count > 0
         except Exception as e:
-            print(f"Error updating item: {str(e)}")
+            logger.exception("Error updating item: {error}", error=str(e))
             return False
 
     def delete_item(self, item_id: str, user_id: str = None) -> bool:
@@ -193,7 +194,7 @@ class MongoDBManager:
             result = self.clothing_items_db.delete_one(query)
             return result.deleted_count > 0
         except Exception as e:
-            print(f"Error deleting item: {str(e)}")
+            logger.exception("Error deleting item: {error}", error=str(e))
             return False
 
     # Search Operations
@@ -227,7 +228,7 @@ class MongoDBManager:
                     item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
-            print(f"Error searching items: {str(e)}")
+            logger.exception("Error searching items: {error}", error=str(e))
             return []
 
     def get_items_by_category(self, category: str, user_id: str = None) -> List[Dict]:
@@ -252,7 +253,7 @@ class MongoDBManager:
                     item["user_id"] = str(item["user_id"])
             return items
         except Exception as e:
-            print(f"Error fetching items by category: {str(e)}")
+            logger.exception("Error fetching items by category: {error}", error=str(e))
             return []
 
     def get_categories(self, user_id: str = None) -> List[str]:
@@ -271,7 +272,7 @@ class MongoDBManager:
                 query["user_id"] = ObjectId(user_id)
             return self.clothing_items_db.distinct("category", query)
         except Exception as e:
-            print(f"Error fetching categories: {str(e)}")
+            logger.exception("Error fetching categories: {error}", error=str(e))
             return []
 
     def get_item_count(self, user_id: str = None) -> int:
@@ -290,7 +291,7 @@ class MongoDBManager:
                 query["user_id"] = ObjectId(user_id)
             return self.clothing_items_db.count_documents(query)
         except Exception as e:
-            print(f"Error getting item count: {str(e)}")
+            logger.exception("Error getting item count: {error}", error=str(e))
             return 0
 
     def get_category_counts(self, user_id: str = None) -> Dict[str, int]:
@@ -316,7 +317,7 @@ class MongoDBManager:
             results = list(self.clothing_items_db.aggregate(pipeline))
             return {result["_id"]: result["count"] for result in results}
         except Exception as e:
-            print(f"Error getting category counts: {str(e)}")
+            logger.exception("Error getting category counts: {error}", error=str(e))
             return {}
 
     def create_or_get_user(self, google_user_data):

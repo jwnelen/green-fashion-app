@@ -9,6 +9,14 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 from green_fashion.clothing.config import CLOTHING_CATEGORIES
+from green_fashion.logging_utils import (
+    setup_logging,
+    logger,
+    request_context_middleware,
+)
+
+# Initialize logging early
+setup_logging(service_name="classifier_api")
 
 app = FastAPI(
     title="Green Fashion Clothing Classifier API",
@@ -23,6 +31,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.middleware("http")(request_context_middleware)
 
 use_small_model = True
 if use_small_model:
@@ -68,11 +78,13 @@ def get_cached_model():
 
         processor = CLIPProcessor.from_pretrained(model_name, use_fast=False)
 
-        print(f"Model loaded successfully with {precision} precision")
+        logger.info(
+            "Model loaded successfully with {precision}", precision=str(precision)
+        )
         return model, processor, device
 
     except Exception as e:
-        print(f"Failed to load model: {e}")
+        logger.exception("Failed to load model: {error}", error=str(e))
         return None, None, None
 
 
@@ -122,12 +134,14 @@ async def classify_item(file: UploadFile = File(...)):
             results.sort(key=lambda x: x["confidence"], reverse=True)
 
             processing_time = time.time() - start_time
-            print(f"Classification completed in {processing_time:.3f} seconds")
+            logger.info(
+                "Classification completed in {elapsed:.3f}s", elapsed=processing_time
+            )
 
             return {"message": results[0]["label"]}
 
     except Exception as e:
-        print(e)
+        logger.exception("Classification failed: {error}", error=str(e))
         raise HTTPException(status_code=503, detail="Loading model failed")
 
 

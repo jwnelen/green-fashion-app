@@ -80,24 +80,62 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
   };
 
-  const displayColorPalette = (colors: Array<{ color: string; percentage: number }>) => {
+  const displayColorPalette = (colors: Array<any>) => {
     if (!colors || colors.length === 0) return null;
+
+    const toHex = (value: any): string | null => {
+      // string: '#rrggbb'
+      if (typeof value === 'string') {
+        const s = value.trim();
+        if (s.startsWith('#') && (s.length === 7 || s.length === 4)) return s;
+        const m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+        if (m) {
+          const [, r, g, b] = m;
+          const toHex2 = (n: string | number) => Number(n).toString(16).padStart(2, '0');
+          return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+        }
+        return null;
+      }
+      // array: [r,g,b]
+      if (Array.isArray(value) && value.length >= 3) {
+        const [r, g, b] = value;
+        const toHex2 = (n: number) => Number(n).toString(16).padStart(2, '0');
+        return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+      }
+      // object: {r,g,b} or {red,green,blue}
+      if (value && typeof value === 'object') {
+        const r = (value.r ?? value.red);
+        const g = (value.g ?? value.green);
+        const b = (value.b ?? value.blue);
+        if ([r, g, b].every((n) => typeof n === 'number')) {
+          const toHex2 = (n: number) => Number(n).toString(16).padStart(2, '0');
+          return `#${toHex2(r)}${toHex2(g)}${toHex2(b)}`;
+        }
+      }
+      return null;
+    };
 
     return (
       <div className="flex gap-1 mt-2">
-        {colors.slice(0, 5).map((colorInfo, index) => {
-          const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (!rgbMatch) return null;
+        {colors.slice(0, 5).map((entry, index) => {
+          // Support both { color, percentage } and [color, percentage]
+          const colorValue = entry?.color ?? (Array.isArray(entry) ? entry[0] : undefined);
+          const percentageValue: number | undefined =
+            typeof entry?.percentage === 'number'
+              ? entry.percentage
+              : Array.isArray(entry) && typeof entry[1] === 'number'
+                ? entry[1]
+                : undefined;
 
-          const [, r, g, b] = rgbMatch;
-          const hexColor = `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+          const hexColor = toHex(colorValue);
+          if (!hexColor) return null;
 
           return (
             <div
               key={index}
               className="w-4 h-4 rounded-full border border-gray-300"
               style={{ backgroundColor: hexColor }}
-              title={`${colorInfo.percentage.toFixed(1)}%`}
+              title={percentageValue !== undefined ? `${percentageValue.toFixed(1)}%` : undefined}
             />
           );
         })}

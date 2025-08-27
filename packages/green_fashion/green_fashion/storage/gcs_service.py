@@ -10,6 +10,7 @@ from typing import Optional, Union
 from google.cloud import storage
 from google.cloud.exceptions import GoogleCloudError, NotFound
 from PIL import Image
+from loguru import logger
 
 from .config import GCS_CREDENTIALS_PATH, GCS_PROJECT_ID
 
@@ -28,8 +29,9 @@ class GCSService:
         """Get or create GCS client."""
         if self._client is None:
             if GCS_CREDENTIALS_PATH and os.path.exists(GCS_CREDENTIALS_PATH):
-                print(
-                    f"Debug: Using service account credentials from {GCS_CREDENTIALS_PATH}"
+                logger.debug(
+                    "Using service account credentials from {path}",
+                    path=GCS_CREDENTIALS_PATH,
                 )
                 self._client = storage.Client.from_service_account_json(
                     GCS_CREDENTIALS_PATH, project=GCS_PROJECT_ID
