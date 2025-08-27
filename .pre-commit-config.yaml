@@ -37,13 +37,13 @@ repos:
   hooks:
     - id: vite-build-check
       name: Check Vite build
-      entry: bash -c "cd webapp && npm run build"
+      entry: bash -c "export NVM_DIR=\"$HOME/.nvm\" && [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && cd webapp && nvm use && npm run build"
       language: system
       pass_filenames: false
       files: ^webapp/.*\.(js|jsx|ts|tsx|vue|css|scss|json)$
     - id: vite-type-check
       name: TypeScript type check
-      entry: bash -c "cd webapp && npx tsc --noEmit"
+      entry: bash -c "export NVM_DIR=\"$HOME/.nvm\" && [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && cd webapp && nvm use && npx tsc --noEmit"
       language: system
       pass_filenames: false
       files: ^webapp/.*\.(ts|tsx)$
