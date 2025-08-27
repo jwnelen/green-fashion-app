@@ -33,3 +33,13 @@ repos:
       name: uv-lock-ml-api
       files: ^services/ml-api/
       args: [--project, services/ml-api]
+
+- repo: local
+  hooks:
+    - id: webapp-build
+      name: Webapp build must succeed
+      language: system
+      entry: bash -lc 'cd webapp && npm run -s build'
+      pass_filenames: false
+      files: ^webapp/
+      exclude: ^webapp/(dist/|node_modules/|\.vite/)
