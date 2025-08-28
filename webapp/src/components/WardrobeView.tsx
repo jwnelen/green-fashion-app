@@ -5,7 +5,8 @@ import { Input } from './ui/input';
 import { api } from '../lib/api';
 import type { ClothingItem } from '../lib/api';
 import { getCategoryName, getWardrobeCategoryName } from '../lib/constants';
-import { Trash2, Edit2, Search } from 'lucide-react';
+import { Trash2, Edit2, Search, Tag } from 'lucide-react';
+import { EditCategoryModal } from './EditCategoryModal';
 import { useAuth } from '../hooks/useAuth';
 
 interface WardrobeViewProps {
@@ -19,6 +20,7 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [editCategoryItem, setEditCategoryItem] = useState<ClothingItem | null>(null);
 
   const filterItems = useCallback(() => {
     let filtered = items;
@@ -73,6 +75,14 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
         setError(err instanceof Error ? err.message : 'Failed to delete item');
       }
     }
+  };
+
+  const handleEditCategory = (item: ClothingItem) => {
+    setEditCategoryItem(item);
+  };
+
+  const handleCategoryUpdateSuccess = () => {
+    loadItems(); // Refresh the items after category update
   };
 
   const displayColorPalette = (colors: Array<{ color: number[] | string; percentage: number }>) => {
@@ -207,10 +217,19 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
                     variant="outline"
                     size="sm"
                     className="flex-1"
+                    disabled={true}
                     onClick={() => onEditItem?.(item)}
                   >
                     <Edit2 className="w-3 h-3 mr-1" />
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditCategory(item)}
+                    title="Edit Category"
+                  >
+                    <Tag className="w-3 h-3" />
                   </Button>
                   <Button
                     variant="destructive"
@@ -225,6 +244,14 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
           </div>
         </>
       )}
+
+      {/* Edit Category Modal */}
+      <EditCategoryModal
+        item={editCategoryItem}
+        isOpen={!!editCategoryItem}
+        onClose={() => setEditCategoryItem(null)}
+        onSuccess={handleCategoryUpdateSuccess}
+      />
     </div>
   );
 }

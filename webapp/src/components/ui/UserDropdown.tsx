@@ -5,6 +5,9 @@ import { useAuth } from '../../hooks/useAuth'
 export default function UserDropdown() {
   const { user, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
+  const [imgError, setImgError] = useState(false)
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   if (!user) return null
 
@@ -14,11 +17,13 @@ export default function UserDropdown() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md transition-colors"
       >
-        {user.picture ? (
+        {user.picture && !imgError ? (
           <img
-            src={user.picture}
+            src={user.picture.startsWith('http') ? `${API_BASE_URL}/proxy/avatar?url=${encodeURIComponent(user.picture)}` : user.picture}
             alt={user.name || 'User avatar'}
             className="h-8 w-8 rounded-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="h-8 w-8 rounded-full bg-gray-400 flex items-center justify-center text-white font-medium text-sm">
