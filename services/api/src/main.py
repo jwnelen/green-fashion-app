@@ -2,6 +2,7 @@ import io
 import os
 import uuid
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from typing import Dict, List, Optional
 
 import jwt
@@ -24,6 +25,7 @@ from green_fashion.logging_utils import (
 from green_fashion.storage.gcs_service import get_gcs_service
 from PIL import Image
 from pydantic import BaseModel
+import urllib.request
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -563,6 +565,50 @@ async def get_image(image_path: str):
     except Exception as e:
         logger.exception("Image not found: {error}", error=str(e))
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
+
+
+@app.get("/proxy/avatar")
+async def proxy_avatar(url: str):
+    """Proxy external avatar images (e.g., Google) to avoid third-party rate limits.
+
+    Only allows specific trusted hosts to prevent SSRF.
+    """
+    try:
+        parsed = urlparse(url)
+        allowed_hosts = {
+            "lh3.googleusercontent.com",
+            "lh4.googleusercontent.com",
+            "lh5.googleusercontent.com",
+            "lh6.googleusercontent.com",
+            "play-lh.googleusercontent.com",
+        }
+        if parsed.scheme not in {"http", "https"} or parsed.netloc not in allowed_hosts:
+            raise HTTPException(status_code=400, detail="Invalid avatar host")
+
+        # Fetch the remote image
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; GreenFashion/1.0)",
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            data = resp.read()
+
+        return StreamingResponse(
+            io.BytesIO(data),
+            media_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=86400",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Avatar proxy failed: {error}", error=str(e))
+        raise HTTPException(status_code=502, detail=f"Failed to fetch avatar: {str(e)}")
 
 
 if __name__ == "__main__":
