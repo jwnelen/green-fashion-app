@@ -6,7 +6,12 @@ import { Select } from './ui/select';
 import { api } from '../lib/api';
 
 import type { ClothingItem, ColorPalette } from '../lib/api';
-import { CLOTHING_CATEGORIES, BODY_SECTIONS, type ClothingCategory } from '../lib/constants';
+import {
+  WARDROBE_CATEGORIES_MAP,
+  CLOTHING_CATEGORIES,
+  SHOES,
+  ACCESSORIES,
+} from '../lib/constants';
 import { Upload, Plus, Palette } from 'lucide-react';
 
 interface AddItemFormProps {
@@ -16,13 +21,13 @@ interface AddItemFormProps {
 export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const [formData, setFormData] = useState<{
     custom_name: string;
-    category: ClothingCategory;
-    body_section: number;
+    wardrobe_category: number;
+    category: string;
     notes: string;
   }>({
     custom_name: '',
+    wardrobe_category: 1,
     category: CLOTHING_CATEGORIES[0],
-    body_section: BODY_SECTIONS[0].value,
     notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -34,7 +39,31 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const [colorExtractionLoading, setColorExtractionLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // classifierAPI.healthCheck().then(s => console.log(s))
+  // Helper function to get subcategories based on wardrobe category number
+  const getSubcategories = (wardrobeCategoryNumber: number) => {
+    switch (wardrobeCategoryNumber) {
+      case 1: // Clothing
+        return CLOTHING_CATEGORIES;
+      case 2: // Shoes
+        return SHOES;
+      case 3: // Accessories
+        return ACCESSORIES;
+      default:
+        return CLOTHING_CATEGORIES;
+    }
+  };
+
+  // Update subcategory when wardrobe category changes
+  const handleWardrobeCategoryChange = (wardrobeCategoryNumber: string) => {
+    const categoryNum = parseInt(wardrobeCategoryNumber, 10);
+    const subcategories = getSubcategories(categoryNum);
+    setFormData(prev => ({
+      ...prev,
+      wardrobe_category: categoryNum,
+      category: subcategories[0] // Reset to first subcategory
+    }));
+    setError(null);
+  };
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -82,8 +111,8 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const resetForm = () => {
     setFormData({
       custom_name: '',
+      wardrobe_category: 1, // 1 = Clothing
       category: CLOTHING_CATEGORIES[0],
-      body_section: BODY_SECTIONS[0].value,
       notes: '',
     });
     setSelectedFile(null);
@@ -109,14 +138,15 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
     try {
       const itemData: Omit<ClothingItem, '_id'> = {
         custom_name: formData.custom_name,
+        wardrobe_category: formData.wardrobe_category,
         category: formData.category,
-        body_section: formData.body_section,
         notes: formData.notes || '',
         colors: extractedColors,
         display_name: selectedFile?.name || formData.custom_name,
         path: undefined,
       };
 
+      console.log('Sending item data:', JSON.stringify(itemData, null, 2));
       const result = await api.createItem(itemData);
 
       if (selectedFile && result.id) {
@@ -131,7 +161,7 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
       resetForm();
       onItemAdded?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item');
+      setError('Failed to add item');
     } finally {
       setLoading(false);
     }
@@ -161,10 +191,27 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            <div className="space-y-2">
+              <label htmlFor="wardrobe_category" className="text-sm font-medium">
+                Wardrobe Category *
+              </label>
+              <Select
+                id="wardrobe_category"
+                value={formData.wardrobe_category.toString()}
+                onChange={(e) => handleWardrobeCategoryChange(e.target.value)}
+              >
+                {Object.entries(WARDROBE_CATEGORIES_MAP).map(([key, category]) => (
+                  <option key={key} value={key}>
+                    {category}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <label htmlFor="category" className="text-sm font-medium">
-                Category *
+                Subcategory *
               </label>
               {classificationResult && (
                 <div className="p-2 rounded-md bg-blue-50 text-blue-700 text-sm">
@@ -176,31 +223,15 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
                 value={formData.category}
                 onChange={(e) => handleInputChange('category', e.target.value)}
               >
-                {CLOTHING_CATEGORIES.map((category) => (
+                {getSubcategories(formData.wardrobe_category).map((category) => (
                   <option key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="body_section" className="text-sm font-medium">
-                Body Section *
-              </label>
-              <Select
-                id="body_section"
-                value={formData.body_section.toString()}
-                onChange={(e) => handleInputChange('body_section', parseInt(e.target.value))}
-              >
-                {BODY_SECTIONS.map((section) => (
-                  <option key={section.value} value={section.value}>
-                    {section.label}
+                    {category}
                   </option>
                 ))}
               </Select>
             </div>
           </div>
+
 
           <div className="space-y-2">
             <label htmlFor="notes" className="text-sm font-medium">

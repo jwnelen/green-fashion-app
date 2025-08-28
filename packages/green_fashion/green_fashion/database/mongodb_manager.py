@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from bson import ObjectId
-from pymongo import MongoClient
 from loguru import logger
+from pymongo import MongoClient
 
 from .config import (
     CLOTHING_ITEMS_DB_NAME,

@@ -7,15 +7,13 @@ from typing import Dict, List, Optional
 import jwt
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from PIL import Image
-from pydantic import BaseModel
-
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.logging_utils import (
@@ -24,6 +22,8 @@ from green_fashion.logging_utils import (
     setup_logging,
 )
 from green_fashion.storage.gcs_service import get_gcs_service
+from PIL import Image
+from pydantic import BaseModel
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -46,11 +46,24 @@ app.add_middleware(
 app.middleware("http")(request_context_middleware)
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error on {request.method} {request.url}: {exc.errors()}")
+    try:
+        body = await request.body()
+        logger.error(f"Request body: {body.decode('utf-8')}")
+    except Exception:
+        logger.error("Could not decode request body")
+    return JSONResponse(
+        status_code=422, content={"detail": f"Validation error: {exc.errors()}"}
+    )
+
+
 # Pydantic models
 class ClothingItem(BaseModel):
     custom_name: str
+    wardrobe_category: int  # 1=Clothing, 2=Shoes, 3=Accessories
     category: str
-    body_section: int
     notes: Optional[str] = ""
     colors: Optional[List[Dict]] = []
     display_name: Optional[str] = ""
@@ -59,8 +72,8 @@ class ClothingItem(BaseModel):
 
 class UpdateClothingItem(BaseModel):
     custom_name: Optional[str] = None
+    wardrobe_category: Optional[int] = None  # 1=Clothing, 2=Shoes, 3=Accessories
     category: Optional[str] = None
-    body_section: Optional[int] = None
     notes: Optional[str] = None
     colors: Optional[List[Dict]] = None
 
@@ -196,11 +209,13 @@ async def create_item(
 ):
     """Create a new clothing item"""
     try:
+        logger.info(f"Received item data: {item.dict()}")
         db_manager = get_db_manager()
         if not db_manager:
             raise HTTPException(status_code=503, detail="Database not available")
         item_data = item.dict()
         item_data["user_id"] = current_user_id
+        logger.info(f"Item data to save: {item_data}")
         item_id = db_manager.add_clothing_item(item_data)
         if not item_id:
             raise HTTPException(status_code=500, detail="Failed to create item")
