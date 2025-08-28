@@ -78,7 +78,6 @@ export const getCategoryMap = (wardrobeCategoryNumber: number) => {
   }
 };
 
-// @ts-ignore
 export type ClothingCategory = typeof CLOTHING_CATEGORIES[number];
 export type ShoeCategory = typeof SHOES[number];
 export type AccessoriesCategory = typeof ACCESSORIES[number];

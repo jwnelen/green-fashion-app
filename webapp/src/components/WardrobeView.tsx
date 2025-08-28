@@ -18,15 +18,10 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
   const [filteredItems, setFilteredItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // const [selectedCategory, setSelectedCategory] = useState<int>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const filterItems = useCallback(() => {
     let filtered = items;
-
-    // if (selectedCategory !== 'all') {
-    //   filtered = filtered.filter(item => item.category === selectedCategory);
-    // }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -89,11 +84,9 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
           let backgroundColor = '';
 
           if (Array.isArray(colorInfo.color)) {
-            // New format: RGB array [r, g, b]
             const [r, g, b] = colorInfo.color;
             backgroundColor = `rgb(${r}, ${g}, ${b})`;
           } else if (typeof colorInfo.color === 'string') {
-            // Legacy format: RGB string "rgb(r, g, b)"
             const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
             if (!rgbMatch) return null;
             backgroundColor = colorInfo.color;
@@ -161,19 +154,6 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
             />
           </div>
         </div>
-        {/* <div className="w-full sm:w-48">
-          <Select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            {CLOTHING_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </option>
-            ))}
-          </Select>
-        </div> */}
       </div>
 
       {filteredItems.length === 0 ? (
