@@ -2,20 +2,19 @@ import io
 import os
 import uuid
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from typing import Dict, List, Optional
 
 import jwt
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from PIL import Image
-from pydantic import BaseModel
-
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.logging_utils import (
@@ -24,6 +23,9 @@ from green_fashion.logging_utils import (
     setup_logging,
 )
 from green_fashion.storage.gcs_service import get_gcs_service
+from PIL import Image
+from pydantic import BaseModel
+import urllib.request
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -46,11 +48,24 @@ app.add_middleware(
 app.middleware("http")(request_context_middleware)
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error on {request.method} {request.url}: {exc.errors()}")
+    try:
+        body = await request.body()
+        logger.error(f"Request body: {body.decode('utf-8')}")
+    except Exception:
+        logger.error("Could not decode request body")
+    return JSONResponse(
+        status_code=422, content={"detail": f"Validation error: {exc.errors()}"}
+    )
+
+
 # Pydantic models
 class ClothingItem(BaseModel):
     custom_name: str
-    category: str
-    body_section: int
+    wardrobe_category: int  # 1=Clothing, 2=Shoes, 3=Accessories
+    category: int
     notes: Optional[str] = ""
     colors: Optional[List[Dict]] = []
     display_name: Optional[str] = ""
@@ -59,8 +74,8 @@ class ClothingItem(BaseModel):
 
 class UpdateClothingItem(BaseModel):
     custom_name: Optional[str] = None
-    category: Optional[str] = None
-    body_section: Optional[int] = None
+    wardrobe_category: Optional[int] = None  # 1=Clothing, 2=Shoes, 3=Accessories
+    category: Optional[int] = None
     notes: Optional[str] = None
     colors: Optional[List[Dict]] = None
 
@@ -196,11 +211,22 @@ async def create_item(
 ):
     """Create a new clothing item"""
     try:
+        logger.info(f"Received item data: {item.dict()}")
         db_manager = get_db_manager()
         if not db_manager:
             raise HTTPException(status_code=503, detail="Database not available")
         item_data = item.dict()
         item_data["user_id"] = current_user_id
+        logger.info(f"Item data to save: {item_data}")
+        logger.info(
+            f"wardrobe_category type: {type(item_data['wardrobe_category'])}, value: {item_data['wardrobe_category']}"
+        )
+        # Ensure wardrobe_category is stored as an integer
+        if "wardrobe_category" in item_data:
+            item_data["wardrobe_category"] = int(item_data["wardrobe_category"])
+            logger.info(
+                f"After conversion - wardrobe_category type: {type(item_data['wardrobe_category'])}, value: {item_data['wardrobe_category']}"
+            )
         item_id = db_manager.add_clothing_item(item_data)
         if not item_id:
             raise HTTPException(status_code=500, detail="Failed to create item")
@@ -225,6 +251,13 @@ async def update_item(
         update_data = {k: v for k, v in updates.dict().items() if v is not None}
         if not update_data:
             raise HTTPException(status_code=400, detail="No valid updates provided")
+
+        # Ensure wardrobe_category is stored as an integer if it's being updated
+        if "wardrobe_category" in update_data:
+            update_data["wardrobe_category"] = int(update_data["wardrobe_category"])
+            logger.info(
+                f"Update - wardrobe_category converted to int: {update_data['wardrobe_category']}"
+            )
 
         success = db_manager.update_item(item_id, update_data, current_user_id)
         if not success:
@@ -532,6 +565,50 @@ async def get_image(image_path: str):
     except Exception as e:
         logger.exception("Image not found: {error}", error=str(e))
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
+
+
+@app.get("/proxy/avatar")
+async def proxy_avatar(url: str):
+    """Proxy external avatar images (e.g., Google) to avoid third-party rate limits.
+
+    Only allows specific trusted hosts to prevent SSRF.
+    """
+    try:
+        parsed = urlparse(url)
+        allowed_hosts = {
+            "lh3.googleusercontent.com",
+            "lh4.googleusercontent.com",
+            "lh5.googleusercontent.com",
+            "lh6.googleusercontent.com",
+            "play-lh.googleusercontent.com",
+        }
+        if parsed.scheme not in {"http", "https"} or parsed.netloc not in allowed_hosts:
+            raise HTTPException(status_code=400, detail="Invalid avatar host")
+
+        # Fetch the remote image
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; GreenFashion/1.0)",
+                "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            data = resp.read()
+
+        return StreamingResponse(
+            io.BytesIO(data),
+            media_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=86400",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Avatar proxy failed: {error}", error=str(e))
+        raise HTTPException(status_code=502, detail=f"Failed to fetch avatar: {str(e)}")
 
 
 if __name__ == "__main__":

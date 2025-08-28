@@ -1,8 +1,8 @@
 export interface ClothingItem {
   _id?: string;
   custom_name: string;
-  category: string;
-  body_section: number;
+  wardrobe_category: number;  // 1=Clothing, 2=Shoes, 3=Accessories
+  category: number;
   notes?: string;
   colors?: Array<{ color: number[]; percentage: number }>;
   display_name?: string;
@@ -21,8 +21,8 @@ export interface ColorExtractionResponse {
 
 export interface UpdateClothingItem {
   custom_name?: string;
-  category?: string;
-  body_section?: number;
+  wardrobe_category?: number;  // 1=Clothing, 2=Shoes, 3=Accessories
+  category?: number;
   notes?: string;
   colors?: Array<{ color: number[]; percentage: number }>;
 }
@@ -61,6 +61,12 @@ class ApiService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('API Error:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
       throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
 
