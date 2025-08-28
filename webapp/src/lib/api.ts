@@ -2,7 +2,7 @@ export interface ClothingItem {
   _id?: string;
   custom_name: string;
   wardrobe_category: number;  // 1=Clothing, 2=Shoes, 3=Accessories
-  category: string;
+  category: number;
   notes?: string;
   colors?: Array<{ color: number[]; percentage: number }>;
   display_name?: string;
@@ -22,7 +22,7 @@ export interface ColorExtractionResponse {
 export interface UpdateClothingItem {
   custom_name?: string;
   wardrobe_category?: number;  // 1=Clothing, 2=Shoes, 3=Accessories
-  category?: string;
+  category?: number;
   notes?: string;
   colors?: Array<{ color: number[]; percentage: number }>;
 }

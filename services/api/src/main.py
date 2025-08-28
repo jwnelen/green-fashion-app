@@ -63,7 +63,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 class ClothingItem(BaseModel):
     custom_name: str
     wardrobe_category: int  # 1=Clothing, 2=Shoes, 3=Accessories
-    category: str
+    category: int
     notes: Optional[str] = ""
     colors: Optional[List[Dict]] = []
     display_name: Optional[str] = ""
@@ -73,7 +73,7 @@ class ClothingItem(BaseModel):
 class UpdateClothingItem(BaseModel):
     custom_name: Optional[str] = None
     wardrobe_category: Optional[int] = None  # 1=Clothing, 2=Shoes, 3=Accessories
-    category: Optional[str] = None
+    category: Optional[int] = None
     notes: Optional[str] = None
     colors: Optional[List[Dict]] = None
 
@@ -216,6 +216,15 @@ async def create_item(
         item_data = item.dict()
         item_data["user_id"] = current_user_id
         logger.info(f"Item data to save: {item_data}")
+        logger.info(
+            f"wardrobe_category type: {type(item_data['wardrobe_category'])}, value: {item_data['wardrobe_category']}"
+        )
+        # Ensure wardrobe_category is stored as an integer
+        if "wardrobe_category" in item_data:
+            item_data["wardrobe_category"] = int(item_data["wardrobe_category"])
+            logger.info(
+                f"After conversion - wardrobe_category type: {type(item_data['wardrobe_category'])}, value: {item_data['wardrobe_category']}"
+            )
         item_id = db_manager.add_clothing_item(item_data)
         if not item_id:
             raise HTTPException(status_code=500, detail="Failed to create item")
@@ -240,6 +249,13 @@ async def update_item(
         update_data = {k: v for k, v in updates.dict().items() if v is not None}
         if not update_data:
             raise HTTPException(status_code=400, detail="No valid updates provided")
+
+        # Ensure wardrobe_category is stored as an integer if it's being updated
+        if "wardrobe_category" in update_data:
+            update_data["wardrobe_category"] = int(update_data["wardrobe_category"])
+            logger.info(
+                f"Update - wardrobe_category converted to int: {update_data['wardrobe_category']}"
+            )
 
         success = db_manager.update_item(item_id, update_data, current_user_id)
         if not success:

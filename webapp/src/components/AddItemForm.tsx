@@ -8,9 +8,7 @@ import { api } from '../lib/api';
 import type { ClothingItem, ColorPalette } from '../lib/api';
 import {
   WARDROBE_CATEGORIES_MAP,
-  CLOTHING_CATEGORIES,
-  SHOES,
-  ACCESSORIES,
+  getCategoryMap,
 } from '../lib/constants';
 import { Upload, Plus, Palette } from 'lucide-react';
 
@@ -22,12 +20,12 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
   const [formData, setFormData] = useState<{
     custom_name: string;
     wardrobe_category: number;
-    category: string;
+    category: number;
     notes: string;
   }>({
     custom_name: '',
     wardrobe_category: 1,
-    category: CLOTHING_CATEGORIES[0],
+    category: 1,
     notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -41,29 +39,28 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
 
   // Helper function to get subcategories based on wardrobe category number
   const getSubcategories = (wardrobeCategoryNumber: number) => {
-    switch (wardrobeCategoryNumber) {
-      case 1: // Clothing
-        return CLOTHING_CATEGORIES;
-      case 2: // Shoes
-        return SHOES;
-      case 3: // Accessories
-        return ACCESSORIES;
-      default:
-        return CLOTHING_CATEGORIES;
-    }
+    return getCategoryMap(wardrobeCategoryNumber);
   };
 
   // Update subcategory when wardrobe category changes
   const handleWardrobeCategoryChange = (wardrobeCategoryNumber: string) => {
     const categoryNum = parseInt(wardrobeCategoryNumber, 10);
-    const subcategories = getSubcategories(categoryNum);
     setFormData(prev => ({
       ...prev,
       wardrobe_category: categoryNum,
-      category: subcategories[0] // Reset to first subcategory
+      category: 1 // Reset to first subcategory
     }));
     setError(null);
   };
+
+  const handleCategoryChange = (clothingCategoryNumber: string) => {
+    const categoryNum = parseInt(clothingCategoryNumber, 10);
+    setFormData(prev => ({
+      ...prev,
+      category: categoryNum// Reset to first subcategory
+    }));
+    setError(null);
+  }
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -112,7 +109,7 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
     setFormData({
       custom_name: '',
       wardrobe_category: 1, // 1 = Clothing
-      category: CLOTHING_CATEGORIES[0],
+      category: 1,
       notes: '',
     });
     setSelectedFile(null);
@@ -220,11 +217,11 @@ export function AddItemForm({ onItemAdded }: AddItemFormProps) {
               )}
               <Select
                 id="category"
-                value={formData.category}
-                onChange={(e) => handleInputChange('category', e.target.value)}
+                value={formData.category.toString()}
+                onChange={(e) => handleCategoryChange(e.target.value)}
               >
-                {getSubcategories(formData.wardrobe_category).map((category) => (
-                  <option key={category} value={category}>
+                {Object.entries(getSubcategories(formData.wardrobe_category)).map(([key, category]) => (
+                  <option key={key} value={key}>
                     {category}
                   </option>
                 ))}
