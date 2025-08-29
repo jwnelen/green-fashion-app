@@ -1,13 +1,13 @@
 import io
 import os
+import urllib.request
 import uuid
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 import jwt
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,7 +25,6 @@ from green_fashion.logging_utils import (
 from green_fashion.storage.gcs_service import get_gcs_service
 from PIL import Image
 from pydantic import BaseModel
-import urllib.request
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -105,6 +104,10 @@ class ColorExtractionResponse(BaseModel):
     colors: List[ColorPalette]
 
 
+MONGO_URI = os.getenv("MONGODB_URI")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
 
 # Validate required environment variables
 for var_name, var_value in [
@@ -115,6 +118,7 @@ for var_name, var_value in [
 ]:
     if not var_value:
         raise RuntimeError(f"Critical environment variable '{var_name}' is not set.")
+
 # Global variables for eager initialization
 _db_manager = None
 _gcs_service = None
@@ -647,4 +651,5 @@ async def startup_event():
 
 
 if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
