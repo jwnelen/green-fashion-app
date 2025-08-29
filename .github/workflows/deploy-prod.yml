@@ -91,6 +91,6 @@ jobs:
             {
               "project_id": "${{ env.GCP_PROJECT_ID }}",
               "environment": "prod",
-              "container_image": "${{ needs.build-api.outputs['image-url'] || format('gcr.io/{0}/api:latest-dev', env.GCP_PROJECT_ID) }}",
-              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs['image-url'] || format('gcr.io/{0}/classifier-api:latest-dev', env.GCP_PROJECT_ID) }}"
+              "container_image": "${{ needs.build-api.outputs['image-url'] || format('gcr.io/{0}/api:latest-prod', env.GCP_PROJECT_ID) }}",
+              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs['image-url'] || format('gcr.io/{0}/classifier-api:latest-prod', env.GCP_PROJECT_ID) }}"
             }
