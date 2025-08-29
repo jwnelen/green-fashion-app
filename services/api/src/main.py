@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import jwt
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,9 @@ from green_fashion.logging_utils import (
 from green_fashion.storage.gcs_service import get_gcs_service
 from PIL import Image
 from pydantic import BaseModel
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize logging early
 setup_logging(service_name="api")
@@ -108,7 +112,6 @@ MONGO_URI = os.getenv("MONGODB_URI")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
-
 # Validate required environment variables
 for var_name, var_value in [
     ("MONGODB_URI", MONGO_URI),
@@ -137,6 +140,9 @@ def initialize_services():
         except Exception as e:
             logger.error(f"Failed to initialize database manager: {e}")
             _db_manager = None
+
+    else:
+        logger.warning("Database URI not found")
 
     # Initialize GCS service
     if BUCKET_NAME:
