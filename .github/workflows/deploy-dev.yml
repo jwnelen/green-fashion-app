@@ -80,12 +80,6 @@ jobs:
     needs: [detect-changes, build-api, build-classifier-api]
     if: always() && (needs.detect-changes.outputs.infrastructure == 'true' || needs.build-api.result == 'success' || needs.build-classifier-api.result == 'success')
 
-    # Resolve strings in the GitHub expression engine, not in bash
-    env:
-      # Fallbacks avoid nested ${{ }} by using format()
-      CONTAINER_IMAGE: ${{ needs.build-api.outputs['image-url'] || format('gcr.io/{0}/api:latest-dev', env.GCP_PROJECT_ID) }}
-      CLASSIFIER_IMAGE: ${{ needs.build-classifier-api.outputs['image-url'] || format('gcr.io/{0}/classifier-api:latest-dev', env.GCP_PROJECT_ID) }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -99,6 +93,6 @@ jobs:
             {
               "project_id": "${{ env.GCP_PROJECT_ID }}",
               "environment": "dev",
-              "container_image": "${{ env.CONTAINER_IMAGE }}",
-              "classifier_api_container_image": "${{ env.CLASSIFIER_IMAGE }}"
+              "container_image": "${{ needs.build-api.outputs['image-url'] || format('gcr.io/{0}/api:latest-dev', env.GCP_PROJECT_ID) }}",
+              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs['image-url'] || format('gcr.io/{0}/classifier-api:latest-dev', env.GCP_PROJECT_ID) }}"
             }
