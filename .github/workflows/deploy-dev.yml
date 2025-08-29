@@ -1,0 +1,97 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS_DEV }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_DEV }}
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      classifier: ${{ steps.filter.outputs.classifier }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'services/api/**'
+              - 'packages/**'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+            classifier:
+              - 'services/classifier_api/**'
+              - 'packages/**'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/**'
+
+  build-api:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    outputs:
+      image-url: ${{ steps.build.outputs.image-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Push API Docker Image
+        id: build
+        uses: ./.github/actions/build-docker
+        with:
+          service-name: api
+          dockerfile-path: services/api/Dockerfile
+          context-path: .
+          gcp-project-id: ${{ env.GCP_PROJECT_ID }}
+          environment: dev
+
+  build-classifier-api:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.classifier == 'true'
+    outputs:
+      image-url: ${{ steps.build.outputs.image-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Push Classifier API Docker Image
+        id: build
+        uses: ./.github/actions/build-docker
+        with:
+          service-name: classifier-api
+          dockerfile-path: services/classifier_api/Dockerfile
+          context-path: .
+          gcp-project-id: ${{ env.GCP_PROJECT_ID }}
+          environment: dev
+
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-api, build-classifier-api]
+    if: always() && (needs.detect-changes.outputs.infrastructure == 'true' || needs.build-api.result == 'success' || needs.build-classifier-api.result == 'success')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply Terraform
+        uses: ./.github/actions/terraform-apply
+        with:
+          environment: dev
+          working-directory: infrastructure/environments/dev
+          apply: 'true'
+          additional-vars: |
+            {
+              "project_id": "${{ env.GCP_PROJECT_ID }}",
+              "environment": "dev",
+              "container_image": "${{ needs.build-api.outputs.image-url || 'gcr.io/${{ env.GCP_PROJECT_ID }}/api:latest-dev' }}",
+              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs.image-url || 'gcr.io/${{ env.GCP_PROJECT_ID }}/classifier-api:latest-dev' }}"
+            }

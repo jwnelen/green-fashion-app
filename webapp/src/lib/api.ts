@@ -1,21 +1,30 @@
 export interface ClothingItem {
   _id?: string;
   custom_name: string;
-  category: string;
-  body_section: number;
+  wardrobe_category: number;  // 1=Clothing, 2=Shoes, 3=Accessories
+  category: number;
   notes?: string;
-  colors?: Array<{ color: string; percentage: number }>;
+  colors?: Array<{ color: number[]; percentage: number }>;
   display_name?: string;
   path?: string;
   image_url?: string;
 }
 
+export interface ColorPalette {
+  color: number[]; // RGB values [r, g, b]
+  percentage: number;
+}
+
+export interface ColorExtractionResponse {
+  colors: ColorPalette[];
+}
+
 export interface UpdateClothingItem {
   custom_name?: string;
-  category?: string;
-  body_section?: number;
+  wardrobe_category?: number;  // 1=Clothing, 2=Shoes, 3=Accessories
+  category?: number;
   notes?: string;
-  colors?: Array<{ color: string; percentage: number }>;
+  colors?: Array<{ color: number[]; percentage: number }>;
 }
 
 export interface ApiResponse<T> {
@@ -33,16 +42,31 @@ class ApiService {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
 
+    // Get token from sessionStorage for authenticated requests
+    const token = sessionStorage.getItem('googleToken');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    // Add Bearer token if available
+    if (token) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('API Error:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
       throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
 
@@ -97,8 +121,17 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
+    // Get token for authenticated upload
+    const token = sessionStorage.getItem('googleToken');
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}/items/${itemId}/upload-image`, {
       method: 'POST',
+      headers,
       body: formData,
     });
 
@@ -110,8 +143,44 @@ class ApiService {
     return response.json();
   }
 
+  async addUserToDataBase(credentialResponse: { credential?: string }): Promise<{ token: string; user: { id: string; email: string; name: string; picture?: string } }> {
+    return this.request(`/api/auth/google`, {
+      method: 'POST',
+      body: JSON.stringify({
+        token: credentialResponse.credential
+      })
+    });
+  }
+
   async healthCheck(): Promise<{ status: string; database: string }> {
     return this.request<{ status: string; database: string }>('/health');
+  }
+
+  async extractColors(file: File, nColors: number = 5): Promise<ColorExtractionResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('n_colors', nColors.toString());
+
+    // Get token for authenticated request
+    const token = sessionStorage.getItem('googleToken');
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/extract-colors`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
   }
 }
 

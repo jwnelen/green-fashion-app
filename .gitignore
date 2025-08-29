@@ -15,6 +15,10 @@ wheels/
 .env
 
 # Terraform
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.*
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform.tfstate.lock.info
+**/terraform.tfvars
+
+# Keep .terraform.lock.hcl (provider version locks should be committed)

@@ -1,0 +1,29 @@
+# Development environment configuration
+# Copy this file to terraform.tfvars and fill in your values
+
+project_id = "YOUR_GCP_PROJECT_ID"
+environment = "dev"
+
+# Optional: Service account to impersonate for Terraform operations
+impersonate_service_account = "terraform@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+
+# Scaling configuration - lower for dev
+min_instances = 0
+max_instances = 3
+
+# Resource allocation - smaller for dev
+memory = "1Gi"
+cpu    = "1"
+
+# Access control - public for dev testing
+allowed_ingress = "all"
+
+# CDN - disabled for dev
+enable_cdn = false
+
+# Custom domain (optional)
+custom_domain = ""
+
+# Container images (will be set by GitHub Actions)
+container_image = "gcr.io/YOUR_PROJECT_ID/green-fashion:latest"
+classifier_api_container_image = "gcr.io/YOUR_PROJECT_ID/classifier-api:latest"

@@ -1,34 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardFooter } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
 import { api } from '../lib/api';
 import type { ClothingItem } from '../lib/api';
-import { CLOTHING_CATEGORIES } from '../lib/constants';
-import { Trash2, Edit2, Search } from 'lucide-react';
+import { getCategoryName, getWardrobeCategoryName } from '../lib/constants';
+import { Trash2, Edit2, Search, Tag } from 'lucide-react';
+import { EditCategoryModal } from './EditCategoryModal';
+import { useAuth } from '../hooks/useAuth';
 
 interface WardrobeViewProps {
   onEditItem?: (item: ClothingItem) => void;
 }
 
 export function WardrobeView({ onEditItem }: WardrobeViewProps) {
+  const { user } = useAuth();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [editCategoryItem, setEditCategoryItem] = useState<ClothingItem | null>(null);
+
+  const filterItems = useCallback(() => {
+    let filtered = items;
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.custom_name.toLowerCase().includes(query) ||
+        getCategoryName(item.wardrobe_category, item.category).toLowerCase().includes(query) ||
+        getWardrobeCategoryName(item.wardrobe_category).toLowerCase().includes(query) ||
+        (item.notes && item.notes.toLowerCase().includes(query))
+      );
+    }
+
+    setFilteredItems(filtered);
+  }, [items, searchQuery]);
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    if (user) {
+      loadItems();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     filterItems();
-  }, [items, selectedCategory, searchQuery]);
+  }, [items, searchQuery, filterItems]);
 
   const loadItems = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
       const data = await api.getItems();
@@ -40,27 +64,8 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
   };
 
-  const filterItems = () => {
-    let filtered = items;
-
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(item => item.category === selectedCategory);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(item =>
-        item.custom_name.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        (item.notes && item.notes.toLowerCase().includes(query))
-      );
-    }
-
-    setFilteredItems(filtered);
-  };
-
   const handleDeleteItem = async (id: string) => {
-    if (!id) return;
+    if (!id || !user) return;
 
     if (window.confirm('Are you sure you want to delete this item?')) {
       try {
@@ -72,23 +77,38 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     }
   };
 
-  const displayColorPalette = (colors: Array<{ color: string; percentage: number }>) => {
+  const handleEditCategory = (item: ClothingItem) => {
+    setEditCategoryItem(item);
+  };
+
+  const handleCategoryUpdateSuccess = () => {
+    loadItems(); // Refresh the items after category update
+  };
+
+  const displayColorPalette = (colors: Array<{ color: number[] | string; percentage: number }>) => {
     if (!colors || colors.length === 0) return null;
 
     return (
       <div className="flex gap-1 mt-2">
         {colors.slice(0, 5).map((colorInfo, index) => {
-          const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-          if (!rgbMatch) return null;
+          let backgroundColor = '';
 
-          const [, r, g, b] = rgbMatch;
-          const hexColor = `#${parseInt(r).toString(16).padStart(2, '0')}${parseInt(g).toString(16).padStart(2, '0')}${parseInt(b).toString(16).padStart(2, '0')}`;
+          if (Array.isArray(colorInfo.color)) {
+            const [r, g, b] = colorInfo.color;
+            backgroundColor = `rgb(${r}, ${g}, ${b})`;
+          } else if (typeof colorInfo.color === 'string') {
+            const rgbMatch = colorInfo.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!rgbMatch) return null;
+            backgroundColor = colorInfo.color;
+          } else {
+            return null;
+          }
 
           return (
             <div
               key={index}
               className="w-4 h-4 rounded-full border border-gray-300"
-              style={{ backgroundColor: hexColor }}
+              style={{ backgroundColor }}
               title={`${colorInfo.percentage.toFixed(1)}%`}
             />
           );
@@ -96,6 +116,16 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
       </div>
     );
   };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <p className="text-xl text-gray-600">Log in!</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -119,6 +149,7 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
     );
   }
 
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -132,19 +163,6 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
               className="pl-10"
             />
           </div>
-        </div>
-        <div className="w-full sm:w-48">
-          <Select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            <option value="all">All Categories</option>
-            {CLOTHING_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </option>
-            ))}
-          </Select>
         </div>
       </div>
 
@@ -183,7 +201,9 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
                   </div>
 
                   <h3 className="font-semibold text-sm mb-1 line-clamp-2">{item.custom_name}</h3>
-                  <p className="text-xs text-gray-500 mb-2 capitalize">{item.category}</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {getCategoryName(item.wardrobe_category, item.category)}
+                  </p>
 
                   {item.notes && (
                     <p className="text-xs text-gray-500 mb-2 line-clamp-2">{item.notes}</p>
@@ -197,10 +217,19 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
                     variant="outline"
                     size="sm"
                     className="flex-1"
+                    disabled={true}
                     onClick={() => onEditItem?.(item)}
                   >
                     <Edit2 className="w-3 h-3 mr-1" />
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditCategory(item)}
+                    title="Edit Category"
+                  >
+                    <Tag className="w-3 h-3" />
                   </Button>
                   <Button
                     variant="destructive"
@@ -215,6 +244,14 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
           </div>
         </>
       )}
+
+      {/* Edit Category Modal */}
+      <EditCategoryModal
+        item={editCategoryItem}
+        isOpen={!!editCategoryItem}
+        onClose={() => setEditCategoryItem(null)}
+        onSuccess={handleCategoryUpdateSuccess}
+      />
     </div>
   );
 }

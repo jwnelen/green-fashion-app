@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=dev
+      - MONGODB_URI=mongodb://root:password@mongo:27017/wardrobe_db?authSource=admin
+      - GCS_PROJECT_ID=${GCS_PROJECT_ID:-}
+      - GCS_BUCKET_DEV=${GCS_BUCKET_DEV:-green-fashion-dev}
+      - GCS_BUCKET_PROD=${GCS_BUCKET_PROD:-green-fashion-prod}
+      - GCS_IMAGE_BUCKET=${GCS_BUCKET_DEV:-green-fashion-dev}
+    volumes:
+      # Mount GCS credentials if available
+      - ${GCS_CREDENTIALS_PATH:-/dev/null}:/project/gcs-key.json:ro
+    depends_on:
+      - mongo
+    networks:
+      - green-fashion-network
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: wardrobe_db
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - green-fashion-network
+
+volumes:
+  mongo_data:
+
+networks:
+  green-fashion-network:
+    driver: bridge

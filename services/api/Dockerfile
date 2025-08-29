@@ -1,0 +1,76 @@
+# Multi-stage build for Green Fashion API
+FROM python:3.13-slim as builder
+
+# Set build arguments
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies needed for building
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for faster package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app
+
+# Set working directory to mimic project structure
+WORKDIR /project/services/api
+
+# Copy packages directory to project root
+COPY packages/ /project/packages/
+
+# Copy dependency files
+COPY services/api/pyproject.toml services/api/uv.lock ./
+
+# Install Python dependencies using uv
+RUN uv sync --frozen --no-dev
+# Add gunicorn for production deployment
+RUN uv add gunicorn
+
+# Production stage
+FROM python:3.13-slim
+
+# Install runtime dependencies and curl for health checks
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash --uid 1000 app
+
+# Set working directory to mimic project structure
+WORKDIR /project/services/api
+
+# Copy Python virtual environment from builder stage
+COPY --from=builder --chown=app:app /project/services/api/.venv ./.venv
+
+# Copy packages directory to project root
+COPY --chown=app:app packages/ /project/packages/
+
+# Copy dependency files for uv
+COPY --chown=app:app services/api/pyproject.toml services/api/uv.lock ./
+
+# Copy application code
+COPY --chown=app:app services/api/src/ ./src/
+
+# Switch to non-root user
+USER app
+
+# Set environment variables
+ENV PYTHONPATH=/project
+ENV PATH="/project/services/api/.venv/bin:$PATH"
+ENV PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Expose port
+EXPOSE ${PORT}
+
+# Start command - use gunicorn with uvicorn workers for better process management
+CMD ["sh", "-c", "python -m gunicorn --workers 4 --worker-class uvicorn.workers.UvicornWorker --worker-connections 1000 --max-requests 5000 --max-requests-jitter 1000 --preload --bind 0.0.0.0:${PORT} src.main:app"]
