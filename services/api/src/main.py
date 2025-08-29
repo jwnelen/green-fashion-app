@@ -105,13 +105,16 @@ class ColorExtractionResponse(BaseModel):
     colors: List[ColorPalette]
 
 
-load_dotenv()
 
-MONGO_URI = os.getenv("MONGODB_URI")
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
-
+# Validate required environment variables
+for var_name, var_value in [
+    ("MONGODB_URI", MONGO_URI),
+    ("GOOGLE_CLIENT_ID", GOOGLE_CLIENT_ID),
+    ("GOOGLE_CLIENT_SECRET", GOOGLE_CLIENT_SECRET),
+    ("GCS_IMAGE_BUCKET", BUCKET_NAME),
+]:
+    if not var_value:
+        raise RuntimeError(f"Critical environment variable '{var_name}' is not set.")
 # Global variables for eager initialization
 _db_manager = None
 _gcs_service = None
