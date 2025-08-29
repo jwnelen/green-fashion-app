@@ -3,66 +3,51 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "production" to confirm deployment'
-        required: true
 
 env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS_PROD }}
-  TF_STATE_BUCKET: my-terraform-state-prod
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET_PROD }}
 
 jobs:
-  validate:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      classifier: ${{ steps.filter.outputs.classifier }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
     steps:
-      - name: Validate confirmation
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "production" ]; then
-            echo "Confirmation failed. You must type 'production' to deploy."
-            exit 1
-          fi
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'services/api/**'
+              - 'packages/**'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+            classifier:
+              - 'services/classifier_api/**'
+              - 'packages/**'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+            infrastructure:
+              - 'infrastructure/**'
+              - '.github/workflows/**'
 
-  plan:
+  build-api:
     runs-on: ubuntu-latest
-    needs: validate
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    outputs:
+      image-url: ${{ steps.build.outputs.image-url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Terraform Plan
-        uses: ./.github/actions/terraform-apply
-        with:
-          environment: prod
-          working-directory: infrastructure/environments/prod
-          apply: 'false'
-
-      - name: Comment Plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '## Terraform Plan\n```\n${{ steps.plan.outputs.plan-output }}\n```'
-            })
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: plan
-    environment: production  # Requires manual approval
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build and Deploy API
+      - name: Build and Push API Docker Image
+        id: build
         uses: ./.github/actions/build-docker
-        id: build-api
         with:
           service-name: api
           dockerfile-path: services/api/Dockerfile
@@ -70,7 +55,33 @@ jobs:
           gcp-project-id: ${{ env.GCP_PROJECT_ID }}
           environment: prod
 
-      - name: Apply Infrastructure
+  build-classifier-api:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.classifier == 'true'
+    outputs:
+      image-url: ${{ steps.build.outputs.image-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and Push Classifier API Docker Image
+        id: build
+        uses: ./.github/actions/build-docker
+        with:
+          service-name: classifier-api
+          dockerfile-path: services/classifier_api/Dockerfile
+          context-path: .
+          gcp-project-id: ${{ env.GCP_PROJECT_ID }}
+          environment: prod
+
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-api, build-classifier-api]
+    if: always() && (needs.detect-changes.outputs.infrastructure == 'true' || needs.build-api.result == 'success' || needs.build-classifier-api.result == 'success')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply Terraform
         uses: ./.github/actions/terraform-apply
         with:
           environment: prod
@@ -78,5 +89,8 @@ jobs:
           apply: 'true'
           additional-vars: |
             {
-              "api_image": "${{ steps.build-api.outputs.image-url }}"
+              "project_id": "${{ env.GCP_PROJECT_ID }}",
+              "environment": "prod",
+              "container_image": "${{ needs.build-api.outputs.image-url || 'gcr.io/${{ env.GCP_PROJECT_ID }}/api:latest-prod' }}",
+              "classifier_api_container_image": "${{ needs.build-classifier-api.outputs.image-url || 'gcr.io/${{ env.GCP_PROJECT_ID }}/classifier-api:latest-prod' }}"
             }

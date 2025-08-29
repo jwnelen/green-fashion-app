@@ -70,6 +70,14 @@ module "mongodb" {
   environment  = var.environment
 }
 
+# Auth secrets
+module "auth" {
+  source = "../../modules/auth"
+
+  service_name = local.service_name
+  environment  = var.environment
+}
+
 # Cloud Run
 module "cloud_run" {
   source = "../../modules/cloud_run"
@@ -88,12 +96,15 @@ module "cloud_run" {
   service_account_email             = module.iam.service_account_email
   bucket_name                       = module.gcs.bucket_name
   mongodb_secret_id                 = module.mongodb.mongodb_secret_id
+  google_client_id_secret_id        = module.auth.google_client_id_secret_id
+  google_client_secret_id           = module.auth.google_client_secret_id
   labels                            = local.labels
 
   depends_on = [
     module.networking,
     module.gcs,
     module.iam,
-    module.mongodb
+    module.mongodb,
+    module.auth
   ]
 }
