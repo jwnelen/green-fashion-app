@@ -27,6 +27,8 @@ COPY services/api/pyproject.toml services/api/uv.lock ./
 
 # Install Python dependencies using uv
 RUN uv sync --frozen --no-dev
+# Add gunicorn for production deployment
+RUN uv add gunicorn
 
 # Production stage
 FROM python:3.13-slim
@@ -70,5 +72,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Expose port
 EXPOSE ${PORT}
 
-# Start command
-CMD ["sh", "-c", "python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT}"]
+# Start command - use gunicorn with uvicorn workers for better process management
+CMD ["sh", "-c", "python -m gunicorn --workers 4 --worker-class uvicorn.workers.UvicornWorker --worker-connections 1000 --max-requests 5000 --max-requests-jitter 1000 --preload --bind 0.0.0.0:${PORT} src.main:app"]

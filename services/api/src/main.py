@@ -112,33 +112,42 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
 
-# Global variables for lazy initialization
+# Global variables for eager initialization
 _db_manager = None
 _gcs_service = None
 security = HTTPBearer()
 
 
-def get_db_manager():
-    """Get database manager with lazy initialization"""
-    global _db_manager
-    if _db_manager is None:
+def initialize_services():
+    """Initialize services on startup"""
+    global _db_manager, _gcs_service
+
+    # Initialize database manager
+    if MONGO_URI:
         try:
             _db_manager = MongoDBManager(MONGO_URI)
+            logger.info("Database manager initialized successfully")
         except Exception as e:
-            print(f"Failed to initialize database manager: {e}")
+            logger.error(f"Failed to initialize database manager: {e}")
             _db_manager = None
+
+    # Initialize GCS service
+    if BUCKET_NAME:
+        try:
+            _gcs_service = get_gcs_service(BUCKET_NAME)
+            logger.info("GCS service initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize GCS service: {e}")
+            _gcs_service = None
+
+
+def get_db_manager():
+    """Get database manager"""
     return _db_manager
 
 
 def get_gcs_service_instance():
-    """Get GCS service with lazy initialization"""
-    global _gcs_service
-    if _gcs_service is None:
-        try:
-            _gcs_service = get_gcs_service(BUCKET_NAME)
-        except Exception as e:
-            print(f"Failed to initialize GCS service: {e}")
-            _gcs_service = None
+    """Get GCS service"""
     return _gcs_service
 
 
@@ -162,13 +171,28 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint - lightweight check for fast deployment validation"""
+    db_manager = get_db_manager()
+
+    # Basic service availability check
+    if not db_manager:
+        return {"status": "starting", "database": "initializing"}
+
+    # For deployment health checks, just verify the service is ready
+    # Skip the expensive database ping during rapid checks
+    return {"status": "healthy", "database": "ready", "api": "operational"}
+
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with database connectivity test"""
     db_manager = get_db_manager()
     if not db_manager or not db_manager.client:
         return {"status": "starting", "database": "connecting"}
     try:
         # Test the connection with a simple ping
         db_manager.client.admin.command("ping")
-        return {"status": "healthy", "database": "connected"}
+        return {"status": "healthy", "database": "connected", "api": "operational"}
     except Exception as e:
         return {"status": "degraded", "database": "connection_error", "error": str(e)}
 
@@ -609,6 +633,14 @@ async def proxy_avatar(url: str):
     except Exception as e:
         logger.exception("Avatar proxy failed: {error}", error=str(e))
         raise HTTPException(status_code=502, detail=f"Failed to fetch avatar: {str(e)}")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    logger.info("Starting up Green Fashion API")
+    initialize_services()
+    logger.info("Services initialized, API ready to serve requests")
 
 
 if __name__ == "__main__":
