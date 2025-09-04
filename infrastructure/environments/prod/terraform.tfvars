@@ -6,7 +6,7 @@ environment = "prod"
 # Note: Secrets like service account keys should be set via GitHub secrets or environment variables
 
 # Scaling configuration - production ready
-min_instances = 1
+min_instances = 0
 max_instances = 2
 
 # Resource allocation - production specs
