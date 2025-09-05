@@ -18,6 +18,9 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
+from green_fashion.database.sql_connector import (
+    get_sql_connector as create_sql_connector,
+)
 from green_fashion.logging_utils import (
     logger,
     request_context_middleware,
@@ -112,6 +115,8 @@ MONGO_URI = os.getenv("MONGODB_URI")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
+SQL_CONNECTION_STRING = os.getenv("MYSQL_CONNECTION_STRING")
+
 # Validate required environment variables
 for var_name, var_value in [
     ("MONGODB_URI", MONGO_URI),
@@ -125,12 +130,13 @@ for var_name, var_value in [
 # Global variables for eager initialization
 _db_manager = None
 _gcs_service = None
+_sql_connector = None
 security = HTTPBearer()
 
 
 def initialize_services():
     """Initialize services on startup"""
-    global _db_manager, _gcs_service
+    global _db_manager, _gcs_service, _sql_connector
 
     # Initialize database manager
     if MONGO_URI:
@@ -143,6 +149,20 @@ def initialize_services():
 
     else:
         logger.warning("Database URI not found")
+
+    # Initialize SQL connector
+    try:
+        if SQL_CONNECTION_STRING:
+            _sql_connector = create_sql_connector(SQL_CONNECTION_STRING)
+            logger.info("SQL connector initialized successfully")
+        else:
+            logger.warning(
+                "SQL connector not initialized - connection string not provided"
+            )
+            _sql_connector = None
+    except Exception as e:
+        logger.error(f"Failed to initialize SQL connector: {e}")
+        _sql_connector = None
 
     # Initialize GCS service
     if BUCKET_NAME:
@@ -162,6 +182,11 @@ def get_db_manager():
 def get_gcs_service_instance():
     """Get GCS service"""
     return _gcs_service
+
+
+def get_sql_connector():
+    """Get SQL connector"""
+    return _sql_connector
 
 
 async def get_current_user(
@@ -200,14 +225,39 @@ async def health_check():
 async def detailed_health_check():
     """Detailed health check with database connectivity test"""
     db_manager = get_db_manager()
+    sql_connector = get_sql_connector()
+
+    health_status = {"status": "healthy", "api": "operational"}
+
+    # Check MongoDB
     if not db_manager or not db_manager.client:
-        return {"status": "starting", "database": "connecting"}
-    try:
-        # Test the connection with a simple ping
-        db_manager.client.admin.command("ping")
-        return {"status": "healthy", "database": "connected", "api": "operational"}
-    except Exception as e:
-        return {"status": "degraded", "database": "connection_error", "error": str(e)}
+        health_status["mongodb"] = "connecting"
+        health_status["status"] = "starting"
+    else:
+        try:
+            db_manager.client.admin.command("ping")
+            health_status["mongodb"] = "connected"
+        except Exception as e:
+            health_status["mongodb"] = "connection_error"
+            health_status["status"] = "degraded"
+            health_status["mongodb_error"] = str(e)
+
+    # Check SQL Database
+    if not sql_connector:
+        health_status["sql"] = "not_configured"
+    else:
+        try:
+            if sql_connector.test_connection():
+                health_status["sql"] = "connected"
+            else:
+                health_status["sql"] = "connection_failed"
+                health_status["status"] = "degraded"
+        except Exception as e:
+            health_status["sql"] = "connection_error"
+            health_status["status"] = "degraded"
+            health_status["sql_error"] = str(e)
+
+    return health_status
 
 
 @app.get("/items", response_model=List[Dict])
