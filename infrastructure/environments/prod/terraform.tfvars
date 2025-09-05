@@ -29,5 +29,5 @@ bucket_versioning_enabled = true
 bucket_lifecycle_age_days = 30
 
 # Container images (dummy values for refresh)
-container_image = "gcr.io/clothing-manager-468218/green-fashion:latest"
+container_image = "gcr.io/clothing-manager-468218/api:latest"
 classifier_api_container_image = "gcr.io/clothing-manager-468218/classifier-api:latest"
