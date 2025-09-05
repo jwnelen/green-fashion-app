@@ -78,6 +78,22 @@ module "auth" {
   environment  = var.environment
 }
 
+# MySQL (optional)
+module "mysql" {
+  count  = var.mysql_enabled ? 1 : 0
+  source = "../../modules/mysql"
+
+  service_name        = local.service_name
+  environment         = var.environment
+  region              = var.region
+  db_tier             = var.mysql_db_tier
+  db_disk_size        = var.mysql_db_disk_size
+  high_availability   = var.mysql_high_availability
+  db_password         = var.mysql_db_password
+  deletion_protection = var.mysql_deletion_protection
+  labels              = local.labels
+}
+
 # Cloud Run
 module "cloud_run" {
   source = "../../modules/cloud_run"
@@ -100,6 +116,7 @@ module "cloud_run" {
   mongodb_secret_id                 = module.mongodb.mongodb_secret_id
   google_client_id_secret_id        = module.auth.google_client_id_secret_id
   google_client_secret_id           = module.auth.google_client_secret_id
+  mysql_connection_secret_id        = var.mysql_enabled ? module.mysql[0].mysql_connection_secret_id : null
   labels                            = local.labels
 
   depends_on = [
@@ -107,6 +124,7 @@ module "cloud_run" {
     module.gcs,
     module.iam,
     module.mongodb,
+    module.mysql,
     module.auth
   ]
 }

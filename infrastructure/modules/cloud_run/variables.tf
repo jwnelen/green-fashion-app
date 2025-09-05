@@ -95,6 +95,12 @@ variable "google_client_secret_id" {
   type        = string
 }
 
+variable "mysql_connection_secret_id" {
+  description = "Secret Manager secret ID for MySQL connection string"
+  type        = string
+  default     = null
+}
+
 variable "labels" {
   description = "Labels to apply to resources"
   type        = map(string)

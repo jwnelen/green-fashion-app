@@ -79,6 +79,20 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
         }
       }
 
+      # MySQL connection string from Secret Manager
+      dynamic "env" {
+        for_each = var.mysql_connection_secret_id != null ? [1] : []
+        content {
+          name = "MYSQL_CONNECTION_STRING"
+          value_source {
+            secret_key_ref {
+              secret  = var.mysql_connection_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
       # Ports
       ports {
         container_port = 8000
