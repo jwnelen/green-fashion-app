@@ -90,8 +90,10 @@ module "cloud_run" {
   classifier_api_container_image    = var.classifier_api_container_image
   min_instances                     = var.min_instances
   max_instances                     = var.max_instances
-  memory                            = var.memory
-  cpu                               = var.cpu
+  api_memory                        = var.api_memory
+  classifier_memory                 = var.classifier_memory
+  api_cpu                           = var.api_cpu
+  classifier_cpu                    = var.classifier_cpu
   allowed_ingress                   = var.allowed_ingress
   service_account_email             = module.iam.service_account_email
   bucket_name                       = module.gcs.bucket_name
