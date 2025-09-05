@@ -30,14 +30,14 @@ class SQLConnector:
         Args:
             connection_string: Database connection string. If None, will try to get from environment.
         """
-        self.connection_string = connection_string or self._get_connection_string()
+        self.connection_string = connection_string
         self.engine = None
         self.SessionLocal = None
         self._initialize_engine()
 
-    def _get_connection_string(self) -> str:
+    def _get_traditional_connection_string(self) -> str:
         """
-        Get database connection string from environment variables.
+        Get traditional database connection string from environment variables.
 
         Returns:
             Database connection string
@@ -75,12 +75,54 @@ class SQLConnector:
     def _initialize_engine(self):
         """Initialize SQLAlchemy engine and session factory."""
         try:
-            self.engine = create_engine(
-                self.connection_string,
-                echo=False,  # Set to True for SQL query logging
-                pool_pre_ping=True,  # Verify connections before use
-                pool_recycle=3600,  # Recycle connections every hour
-            )
+            # If connection string provided, use it directly
+            if self.connection_string:
+                logger.info("Using provided connection string")
+                self.engine = create_engine(
+                    self.connection_string,
+                    echo=False,  # Set to True for SQL query logging
+                    pool_pre_ping=True,  # Verify connections before use
+                    pool_recycle=3600,  # Recycle connections every hour
+                )
+            else:
+                # Check for Cloud Run Unix socket first (volume mount)
+                cloudsql_path = "/cloudsql"
+                instance_connection_name = os.getenv("INSTANCE_CONNECTION_NAME")
+
+                if os.path.exists(cloudsql_path) and instance_connection_name:
+                    # Cloud Run with volume mount - use Unix socket
+                    username = os.getenv("DB_USER")
+                    password = os.getenv("DB_PASS")
+                    database = os.getenv("DB_NAME")
+
+                    if all([username, password, database]):
+                        socket_path = f"{cloudsql_path}/{instance_connection_name}"
+                        connection_string = f"mysql+pymysql://{username}:{password}@/{database}?unix_socket={socket_path}"
+                        logger.info(
+                            f"Using Cloud SQL Unix socket connection: {socket_path}"
+                        )
+
+                        self.engine = create_engine(
+                            connection_string,
+                            echo=False,  # Set to True for SQL query logging
+                            pool_pre_ping=True,  # Verify connections before use
+                            pool_recycle=3600,  # Recycle connections every hour
+                        )
+                    else:
+                        raise ValueError(
+                            "Missing Cloud SQL environment variables: DB_USER, DB_PASS, DB_NAME"
+                        )
+                else:
+                    # Local development - use traditional connection
+                    logger.info("Using traditional MySQL connection")
+                    self.connection_string = self._get_traditional_connection_string()
+                    self.engine = create_engine(
+                        self.connection_string,
+                        echo=False,  # Set to True for SQL query logging
+                        pool_pre_ping=True,  # Verify connections before use
+                        pool_recycle=3600,  # Recycle connections every hour
+                    )
+
             self.SessionLocal = sessionmaker(
                 autocommit=False, autoflush=False, bind=self.engine
             )

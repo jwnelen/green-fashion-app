@@ -17,3 +17,8 @@ output "mysql_connection_secret_id" {
   description = "Secret Manager secret ID for MySQL connection string"
   value       = google_secret_manager_secret.mysql_connection_string.secret_id
 }
+
+output "mysql_instance_connection_name" {
+  description = "MySQL instance connection name for Cloud SQL proxy"
+  value       = google_sql_database_instance.mysql_instance.connection_name
+}

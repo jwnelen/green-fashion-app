@@ -101,6 +101,31 @@ variable "mysql_connection_secret_id" {
   default     = null
 }
 
+variable "mysql_instance_connection_name" {
+  description = "MySQL instance connection name for Cloud SQL Python Connector"
+  type        = string
+  default     = null
+}
+
+variable "mysql_db_user" {
+  description = "MySQL database user for Cloud SQL Python Connector"
+  type        = string
+  default     = null
+}
+
+variable "mysql_db_password" {
+  description = "MySQL database password for Cloud SQL Python Connector"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "mysql_db_name" {
+  description = "MySQL database name for Cloud SQL Python Connector"
+  type        = string
+  default     = null
+}
+
 variable "labels" {
   description = "Labels to apply to resources"
   type        = map(string)
