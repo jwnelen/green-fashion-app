@@ -12,13 +12,13 @@ variable "impersonate_service_account" {
 variable "region" {
   description = "Google Cloud region"
   type        = string
-  default     = "us-central1"
+  default     = "europe-west4"
 }
 
 variable "zone" {
   description = "Google Cloud zone"
   type        = string
-  default     = "us-central1-a"
+  default     = "europe-west4-a"
 }
 
 variable "environment" {
@@ -54,14 +54,26 @@ variable "max_instances" {
   default     = 10
 }
 
-variable "memory" {
-  description = "Memory allocation for Cloud Run service"
+variable "api_memory" {
+  description = "Memory allocation for API Cloud Run service"
+  type        = string
+  default     = "1Gi"
+}
+
+variable "classifier_memory" {
+  description = "Memory allocation for Classifier API Cloud Run service"
   type        = string
   default     = "2Gi"
 }
 
-variable "cpu" {
-  description = "CPU allocation for Cloud Run service"
+variable "api_cpu" {
+  description = "CPU allocation for API Cloud Run service"
+  type        = string
+  default     = "1"
+}
+
+variable "classifier_cpu" {
+  description = "CPU allocation for Classifier API Cloud Run service"
   type        = string
   default     = "2"
 }

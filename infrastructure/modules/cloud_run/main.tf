@@ -25,8 +25,8 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
       # Resource allocation
       resources {
         limits = {
-          cpu    = var.cpu
-          memory = var.memory
+          cpu    = var.api_cpu
+          memory = var.api_memory
         }
         cpu_idle                = true
         startup_cpu_boost       = true
@@ -157,8 +157,8 @@ resource "google_cloud_run_v2_service" "classifier_api" {
       # Resource allocation
       resources {
         limits = {
-          cpu    = var.cpu
-          memory = var.memory
+          cpu    = var.classifier_cpu
+          memory = var.classifier_memory
         }
         cpu_idle                = true
         startup_cpu_boost       = true

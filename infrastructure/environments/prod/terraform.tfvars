@@ -10,8 +10,10 @@ min_instances = 0
 max_instances = 2
 
 # Resource allocation - production specs
-memory = "2Gi"
-cpu    = "2"
+api_memory = "1Gi"
+classifier_memory = "2Gi"
+api_cpu = "1"
+classifier_cpu = "2"
 
 # Access control - public for production
 allowed_ingress = "all"
@@ -25,3 +27,7 @@ custom_domain = "" # e.g., "green-fashion.example.com"
 # Storage configuration - production settings
 bucket_versioning_enabled = true
 bucket_lifecycle_age_days = 30
+
+# Container images (dummy values for refresh)
+container_image = "gcr.io/clothing-manager-468218/green-fashion:latest"
+classifier_api_container_image = "gcr.io/clothing-manager-468218/classifier-api:latest"
