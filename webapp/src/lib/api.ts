@@ -34,13 +34,15 @@ export interface ApiResponse<T> {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_VERSION = "v1"
 
 class ApiService {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    api_version: string = API_VERSION
   ): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${API_BASE_URL}/${api_version}${endpoint}`;
 
     // Get token from sessionStorage for authenticated requests
     const token = sessionStorage.getItem('googleToken');
@@ -144,12 +146,12 @@ class ApiService {
   }
 
   async addUserToDataBase(credentialResponse: { credential?: string }): Promise<{ token: string; user: { id: string; email: string; name: string; picture?: string } }> {
-    return this.request(`/api/auth/google`, {
+    return this.request(`/auth/google`, {
       method: 'POST',
       body: JSON.stringify({
         token: credentialResponse.credential
       })
-    });
+    }, "v2");
   }
 
   async healthCheck(): Promise<{ status: string; database: string }> {

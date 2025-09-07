@@ -23,6 +23,6 @@ Usage:
 
 from .data_loader import DataLoader
 from .mongodb_manager import MongoDBManager
-from .sql_connector import SQLConnector, get_sql_connector
+from .sql_connector import get_async_sql_connector
 
-__all__ = ["MongoDBManager", "DataLoader", "SQLConnector", "get_sql_connector"]
+__all__ = ["MongoDBManager", "DataLoader", "get_async_sql_connector"]
