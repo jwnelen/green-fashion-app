@@ -10,7 +10,6 @@ dev-dependencies = [
     "ruff>=0.5.6",
 ]
 
-
 [tool.ruff]
 extend-exclude = ["packages/*/build", "services/*/build"]
 src = ["packages/green_fashion", "services/api/src", "services/classifier_api/src"]
