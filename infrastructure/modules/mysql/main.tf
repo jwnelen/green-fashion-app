@@ -42,13 +42,13 @@ resource "google_sql_database_instance" "mysql_instance" {
 
 # MySQL Database
 resource "google_sql_database" "mysql_database" {
-  name     = "${var.service_name}_${var.environment}"
+  name     = "green-fashion-db"
   instance = google_sql_database_instance.mysql_instance.name
 }
 
 # MySQL User
 resource "google_sql_user" "mysql_user" {
-  name     = "${var.service_name}_user"
+  name     = "dbUser"
   instance = google_sql_database_instance.mysql_instance.name
   password = var.db_password
 }
