@@ -34,7 +34,7 @@ export interface ApiResponse<T> {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_VERSION = "v1"
+export const API_VERSION = "v1"
 
 class ApiService {
   private async request<T>(
@@ -131,7 +131,7 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}/items/${itemId}/upload-image`, {
+    const response = await fetch(`${API_BASE_URL}/${API_VERSION}/items/${itemId}/upload-image`, {
       method: 'POST',
       headers,
       body: formData,

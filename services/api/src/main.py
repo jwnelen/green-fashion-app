@@ -200,7 +200,7 @@ async def get_current_user(
             credentials.credentials, GOOGLE_CLIENT_SECRET, algorithms=["HS256"]
         )
         user_id = payload[
-            "user_id"
+            "auth_provider_id"
         ]  # this now defaults to the mongodb user_id, not the google_id
         return user_id
     except jwt.InvalidTokenError:
