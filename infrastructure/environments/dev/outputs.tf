@@ -57,3 +57,24 @@ output "gcs_service_account_key_secret_id" {
   description = "Secret Manager secret ID for GCS service account key"
   value       = module.iam.gcs_service_account_key_secret_id
 }
+
+# Cloud Composer outputs (conditional)
+output "composer_environment_name" {
+  description = "Name of the Cloud Composer environment"
+  value       = var.composer_enabled ? module.composer[0].composer_environment_name : null
+}
+
+output "composer_airflow_uri" {
+  description = "URI of the Airflow web interface"
+  value       = var.composer_enabled ? module.composer[0].composer_airflow_uri : null
+}
+
+output "composer_gcs_bucket" {
+  description = "GCS bucket for Cloud Composer environment"
+  value       = var.composer_enabled ? module.composer[0].composer_gcs_bucket : null
+}
+
+output "composer_service_account_email" {
+  description = "Email of the service account used by Cloud Composer"
+  value       = var.composer_enabled ? module.composer[0].composer_service_account_email : null
+}

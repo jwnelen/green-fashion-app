@@ -148,3 +148,77 @@ variable "mysql_deletion_protection" {
   type        = bool
   default     = true
 }
+
+# Cloud Composer variables
+variable "composer_enabled" {
+  description = "Enable Cloud Composer environment"
+  type        = bool
+  default     = true
+}
+
+variable "composer_airflow_image_version" {
+  description = "Airflow image version for Cloud Composer"
+  type        = string
+  default     = "composer-3-airflow-2.10.5-build.14"
+}
+
+variable "composer_machine_type" {
+  description = "Machine type for Composer nodes"
+  type        = string
+  default     = "n1-standard-1"
+}
+
+variable "composer_disk_size_gb" {
+  description = "Disk size in GB for Composer nodes"
+  type        = number
+  default     = 100
+}
+
+variable "composer_database_machine_type" {
+  description = "Machine type for the Composer database"
+  type        = string
+  default     = "db-n1-standard-2"
+}
+
+variable "composer_web_server_machine_type" {
+  description = "Machine type for the Composer web server"
+  type        = string
+  default     = "composer-n1-webserver-2"
+}
+
+
+variable "composer_scheduler_cpu" {
+  description = "CPU allocation for Composer scheduler"
+  type        = number
+  default     = 0.5
+}
+
+variable "composer_scheduler_memory_gb" {
+  description = "Memory allocation for Composer scheduler in GB"
+  type        = number
+  default     = 1.875
+}
+
+variable "composer_worker_min_count" {
+  description = "Minimum number of Composer workers"
+  type        = number
+  default     = 1
+}
+
+variable "composer_worker_max_count" {
+  description = "Maximum number of Composer workers"
+  type        = number
+  default     = 3
+}
+
+variable "composer_airflow_env_variables" {
+  description = "Environment variables for Airflow in Composer"
+  type        = map(string)
+  default     = {}
+}
+
+variable "composer_pypi_packages" {
+  description = "PyPI packages to install in the Composer environment"
+  type        = map(string)
+  default     = {}
+}
