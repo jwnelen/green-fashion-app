@@ -54,11 +54,12 @@ resource "google_composer_environment" "composer_environment" {
       pypi_packages = var.pypi_packages
     }
 
-    # Remove node_config, database_config, and web_server_config
-    # These are not supported in Composer 3.x
-    # Use workloads_config instead
+    # Minimal node_config required for service account in Composer 3.x
+    node_config {
+      service_account = google_service_account.composer_service_account.email
+    }
 
-    # Workloads configuration - only supported config for Composer 3.x
+    # Workloads configuration - primary config for Composer 3.x
     workloads_config {
       scheduler {
         cpu        = var.scheduler_cpu
