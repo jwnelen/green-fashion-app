@@ -206,12 +206,12 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@app.get("/v1/")
+@app.get("/")
 async def root():
     return {"message": "Green Fashion Wardrobe API", "version": "1.0.0"}
 
 
-@app.get("/v1/health")
+@app.get("/health")
 async def health_check():
     """Health check endpoint - lightweight check for fast deployment validation"""
     db_manager = get_db_manager()
