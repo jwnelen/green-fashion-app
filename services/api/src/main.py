@@ -16,10 +16,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from PIL import Image
-from pydantic import BaseModel
-from sqlalchemy import text
-
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.database.sql_connector import (
@@ -32,6 +28,9 @@ from green_fashion.logging_utils import (
     setup_logging,
 )
 from green_fashion.storage.gcs_service import get_gcs_service
+from PIL import Image
+from pydantic import BaseModel
+from sqlalchemy import text
 
 # Load environment variables from .env file
 load_dotenv()
@@ -834,6 +833,4 @@ async def startup_event():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
