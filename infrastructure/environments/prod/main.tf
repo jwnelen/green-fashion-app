@@ -103,19 +103,14 @@ module "composer" {
   environment             = var.environment
   region                  = var.region
   project_id              = var.project_id
-  zone                    = var.zone
   airflow_image_version   = var.composer_airflow_image_version
-  machine_type            = var.composer_machine_type
-  disk_size_gb            = var.composer_disk_size_gb
-  database_machine_type   = var.composer_database_machine_type
-  web_server_machine_type = var.composer_web_server_machine_type
   scheduler_cpu           = var.composer_scheduler_cpu
   scheduler_memory_gb     = var.composer_scheduler_memory_gb
   worker_min_count        = var.composer_worker_min_count
   worker_max_count        = var.composer_worker_max_count
   airflow_env_variables   = var.composer_airflow_env_variables
-  pypi_packages          = var.composer_pypi_packages
-  labels                 = local.labels
+  pypi_packages           = var.composer_pypi_packages
+  labels                  = local.labels
 
   depends_on = [
     module.networking

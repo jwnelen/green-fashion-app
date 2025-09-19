@@ -54,28 +54,11 @@ resource "google_composer_environment" "composer_environment" {
       pypi_packages = var.pypi_packages
     }
 
-    node_config {
-      zone            = var.zone
-      machine_type    = var.machine_type
-      disk_size_gb    = var.disk_size_gb
-      service_account = google_service_account.composer_service_account.email
+    # Remove node_config, database_config, and web_server_config
+    # These are not supported in Composer 3.x
+    # Use workloads_config instead
 
-      # Network and subnetwork configuration
-      network    = var.network
-      subnetwork = var.subnetwork
-    }
-
-    # Database configuration
-    database_config {
-      machine_type = var.database_machine_type
-    }
-
-    # Web server configuration
-    web_server_config {
-      machine_type = var.web_server_machine_type
-    }
-
-    # Workloads configuration
+    # Workloads configuration - only supported config for Composer 3.x
     workloads_config {
       scheduler {
         cpu        = var.scheduler_cpu

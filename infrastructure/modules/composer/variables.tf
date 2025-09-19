@@ -19,12 +19,6 @@ variable "region" {
   default     = "europe-west4"
 }
 
-variable "zone" {
-  description = "Google Cloud zone"
-  type        = string
-  default     = "europe-west4-a"
-}
-
 variable "labels" {
   description = "Labels to apply to resources"
   type        = map(string)
@@ -37,42 +31,6 @@ variable "airflow_image_version" {
   default     = "composer-3-airflow-2.10.5-build.14"
 }
 
-variable "machine_type" {
-  description = "Machine type for Composer nodes"
-  type        = string
-  default     = "n1-standard-1"
-}
-
-variable "disk_size_gb" {
-  description = "Disk size in GB for Composer nodes"
-  type        = number
-  default     = 100
-}
-
-variable "network" {
-  description = "VPC network for Composer"
-  type        = string
-  default     = "default"
-}
-
-variable "subnetwork" {
-  description = "Subnetwork for Composer"
-  type        = string
-  default     = null
-}
-
-variable "database_machine_type" {
-  description = "Machine type for the database"
-  type        = string
-  default     = "db-n1-standard-2"
-}
-
-variable "web_server_machine_type" {
-  description = "Machine type for the web server"
-  type        = string
-  default     = "composer-n1-webserver-2"
-}
-
 
 variable "scheduler_cpu" {
   description = "CPU allocation for scheduler"
@@ -81,9 +39,9 @@ variable "scheduler_cpu" {
 }
 
 variable "scheduler_memory_gb" {
-  description = "Memory allocation for scheduler in GB"
+  description = "Memory allocation for scheduler in GB (must be multiple of 0.25)"
   type        = number
-  default     = 1.875
+  default     = 2.0
 }
 
 variable "scheduler_storage_gb" {
@@ -105,9 +63,9 @@ variable "web_server_cpu" {
 }
 
 variable "web_server_memory_gb" {
-  description = "Memory allocation for web server in GB"
+  description = "Memory allocation for web server in GB (must be at least 2GB)"
   type        = number
-  default     = 1.875
+  default     = 2.0
 }
 
 variable "web_server_storage_gb" {
@@ -123,9 +81,9 @@ variable "worker_cpu" {
 }
 
 variable "worker_memory_gb" {
-  description = "Memory allocation for workers in GB"
+  description = "Memory allocation for workers in GB (must be multiple of 0.25)"
   type        = number
-  default     = 1.875
+  default     = 2.0
 }
 
 variable "worker_storage_gb" {

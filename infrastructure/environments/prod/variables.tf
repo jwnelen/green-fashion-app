@@ -194,9 +194,9 @@ variable "composer_scheduler_cpu" {
 }
 
 variable "composer_scheduler_memory_gb" {
-  description = "Memory allocation for Composer scheduler in GB"
+  description = "Memory allocation for Composer scheduler in GB (must be multiple of 0.25)"
   type        = number
-  default     = 1.875
+  default     = 2.0
 }
 
 variable "composer_worker_min_count" {
