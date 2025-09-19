@@ -75,10 +75,35 @@ jobs:
           gcp-project-id: ${{ env.GCP_PROJECT_ID }}
           environment: dev
 
+  run-migrations:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run Database Migrations
+        working-directory: services/api
+        run: |
+          uv sync
+          uv run alembic upgrade head
+        env:
+          MYSQL_CONNECTION_STRING: ${{ secrets.MYSQL_CONNECTION_STRING_DEV }}
+
   deploy-infrastructure:
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-api, build-classifier-api]
-    if: always() && (needs.detect-changes.outputs.infrastructure == 'true' || needs.build-api.result == 'success' || needs.build-classifier-api.result == 'success')
+    needs: [detect-changes, build-api, build-classifier-api, run-migrations]
+    if: always() && (needs.detect-changes.outputs.infrastructure == 'true' || needs.build-api.result == 'success' || needs.build-classifier-api.result == 'success' || needs.run-migrations.result == 'success')
 
     steps:
       - uses: actions/checkout@v4

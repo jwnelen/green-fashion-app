@@ -111,3 +111,40 @@ variable "bucket_lifecycle_age_days" {
   type        = number
   default     = 365
 }
+
+variable "mysql_enabled" {
+  description = "Enable MySQL Cloud SQL database"
+  type        = bool
+  default     = false
+}
+
+variable "mysql_db_tier" {
+  description = "Cloud SQL tier for MySQL instance"
+  type        = string
+  default     = "db-standard-1"
+}
+
+variable "mysql_db_disk_size" {
+  description = "MySQL database disk size in GB"
+  type        = number
+  default     = 10
+}
+
+variable "mysql_high_availability" {
+  description = "Enable high availability for MySQL"
+  type        = bool
+  default     = false
+}
+
+variable "mysql_db_password" {
+  description = "MySQL database password"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "mysql_deletion_protection" {
+  description = "Enable deletion protection for MySQL"
+  type        = bool
+  default     = true
+}

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { API_VERSION } from '../../lib/api'
 
 export default function UserDropdown() {
   const { user, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [imgError, setImgError] = useState(false)
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000') + "/" + API_VERSION
 
   if (!user) return null
 
