@@ -16,6 +16,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from PIL import Image
+from pydantic import BaseModel
+from sqlalchemy import text
+
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
 from green_fashion.database.sql_connector import (
@@ -28,9 +32,6 @@ from green_fashion.logging_utils import (
     setup_logging,
 )
 from green_fashion.storage.gcs_service import get_gcs_service
-from PIL import Image
-from pydantic import BaseModel
-from sqlalchemy import text
 
 # Load environment variables from .env file
 load_dotenv()
@@ -198,7 +199,9 @@ async def get_current_user(
         payload = jwt.decode(
             credentials.credentials, GOOGLE_CLIENT_SECRET, algorithms=["HS256"]
         )
-        user_id = payload["user_id"]
+        user_id = payload[
+            "user_id"
+        ]  # this now defaults to the mongodb user_id, not the google_id
         return user_id
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -656,52 +659,57 @@ async def google_auth_v2(
     if not idinfo.get("email_verified", False):
         raise HTTPException(status_code=401, detail="Email not verified")
 
-    google_id = idinfo["sub"]
+    auth_provider_id = idinfo["sub"]
     email = idinfo["email"]
     name = idinfo.get("name")
-    picture = idinfo.get("picture")
+    picture_url = idinfo.get("picture")
 
     # 2) Upsert + fetch user in a single transaction
     try:
         async with sql.transaction() as session:
             upsert_query = """
-                INSERT INTO account (google_id, email, name, picture, created_at, last_login)
-                VALUES (:google_id, :email, :name, :picture, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                INSERT INTO account (auth_provider_id, auth_provider, email, name, picture_url, created_at, last_login)
+                VALUES (:auth_provider_id, :auth_provider, :email, :name, :picture_url, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON DUPLICATE KEY UPDATE
                     email = VALUES(email),
                     name = VALUES(name),
-                    picture = VALUES(picture),
+                    picture_url = VALUES(picture_url),
                     last_login = CURRENT_TIMESTAMP
             """
             await session.execute(
                 text(upsert_query),
                 {
-                    "google_id": google_id,
+                    "auth_provider_id": auth_provider_id,
                     "email": email,
                     "name": name,
-                    "picture": picture,
+                    "picture_url": picture_url,
+                    "auth_provider": "google",
                 },
             )
 
             select_query = """
-                SELECT id, google_id, email, name, picture
+                SELECT id, auth_provider_id, email, name, picture_url
                 FROM account
-                WHERE google_id = :google_id
+                WHERE auth_provider_id = :auth_provider_id
                 LIMIT 1
             """
-            result = await session.execute(text(select_query), {"google_id": google_id})
+            result = await session.execute(
+                text(select_query), {"auth_provider_id": auth_provider_id}
+            )
             row = result.mappings().first()
             if not row:
                 raise HTTPException(status_code=500, detail="User fetch failed")
             user = dict(row)
-            logger.info("User login/upsert successful for google_id={}", google_id)
+            logger.info(
+                "User login/upsert successful for google_id={}", auth_provider_id
+            )
 
             jwt_token = jwt.encode(
                 {
-                    "user_id": str(user["id"]),
+                    "auth_provider_id": str(user["auth_provider_id"]),
                     "email": user["email"],
                     "name": user["name"],
-                    "picture": user.get("picture"),
+                    "picture": user.get("picture_url"),
                     "exp": datetime.utcnow() + timedelta(days=7),
                 },
                 GOOGLE_CLIENT_SECRET,
@@ -712,10 +720,10 @@ async def google_auth_v2(
             return AuthResponse(
                 token=jwt_token,
                 user=UserResponse(
-                    id=str(user["id"]),
+                    id=str(user["auth_provider_id"]),
                     email=user["email"],
                     name=user.get("name"),
-                    picture=user.get("picture"),
+                    picture=user.get("picture_url"),
                 ),
             )
 
