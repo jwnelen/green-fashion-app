@@ -114,7 +114,6 @@ jobs:
           environment: dev
           working-directory: infrastructure/environments/dev
           apply: 'true'
-          var-file: terraform.tfvars
           additional-vars: |
             {
               "project_id": "${{ env.GCP_PROJECT_ID }}",

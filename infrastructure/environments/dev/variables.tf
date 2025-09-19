@@ -121,7 +121,7 @@ variable "mysql_enabled" {
 variable "mysql_db_tier" {
   description = "Cloud SQL tier for MySQL instance"
   type        = string
-  default     = "db-standard-1"
+  default     = "db-f1-micro"
 }
 
 variable "mysql_db_disk_size" {
