@@ -16,16 +16,22 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google.auth.transport import requests
 from google.oauth2 import id_token
+from PIL import Image
+from pydantic import BaseModel
+from sqlalchemy import text
+
 from green_fashion.color_extracting.color_palette_extractor import extract_color_palette
 from green_fashion.database.mongodb_manager import MongoDBManager
+from green_fashion.database.sql_connector import (
+    AsyncSQLConnector,
+    get_async_sql_connector,
+)
 from green_fashion.logging_utils import (
     logger,
     request_context_middleware,
     setup_logging,
 )
 from green_fashion.storage.gcs_service import get_gcs_service
-from PIL import Image
-from pydantic import BaseModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -112,6 +118,8 @@ MONGO_URI = os.getenv("MONGODB_URI")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 BUCKET_NAME = os.getenv("GCS_IMAGE_BUCKET")
+SQL_CONNECTION_STRING = os.getenv("MYSQL_CONNECTION_STRING")
+
 # Validate required environment variables
 for var_name, var_value in [
     ("MONGODB_URI", MONGO_URI),
@@ -125,12 +133,13 @@ for var_name, var_value in [
 # Global variables for eager initialization
 _db_manager = None
 _gcs_service = None
+_sql_connector = None
 security = HTTPBearer()
 
 
 def initialize_services():
     """Initialize services on startup"""
-    global _db_manager, _gcs_service
+    global _db_manager, _gcs_service, _sql_connector
 
     # Initialize database manager
     if MONGO_URI:
@@ -143,6 +152,20 @@ def initialize_services():
 
     else:
         logger.warning("Database URI not found")
+
+    # Initialize SQL connector
+    try:
+        if SQL_CONNECTION_STRING:
+            _sql_connector = get_async_sql_connector(SQL_CONNECTION_STRING)
+            logger.info("SQL connector initialized successfully")
+        else:
+            logger.warning(
+                "SQL connector not initialized - connection string not provided"
+            )
+            _sql_connector = None
+    except Exception as e:
+        logger.error(f"Failed to initialize SQL connector: {e}")
+        _sql_connector = None
 
     # Initialize GCS service
     if BUCKET_NAME:
@@ -164,6 +187,11 @@ def get_gcs_service_instance():
     return _gcs_service
 
 
+def get_sql_connector():
+    """Get SQL connector"""
+    return _sql_connector
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -171,18 +199,20 @@ async def get_current_user(
         payload = jwt.decode(
             credentials.credentials, GOOGLE_CLIENT_SECRET, algorithms=["HS256"]
         )
-        user_id = payload["user_id"]
+        user_id = payload[
+            "auth_provider_id"
+        ]  # this now defaults to the mongodb user_id, not the google_id
         return user_id
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@app.get("/")
+@app.get("/v1/")
 async def root():
     return {"message": "Green Fashion Wardrobe API", "version": "1.0.0"}
 
 
-@app.get("/health")
+@app.get("/v1/health")
 async def health_check():
     """Health check endpoint - lightweight check for fast deployment validation"""
     db_manager = get_db_manager()
@@ -196,21 +226,46 @@ async def health_check():
     return {"status": "healthy", "database": "ready", "api": "operational"}
 
 
-@app.get("/health/detailed")
+@app.get("/v1/health/detailed")
 async def detailed_health_check():
     """Detailed health check with database connectivity test"""
     db_manager = get_db_manager()
+    sql_connector = get_sql_connector()
+
+    health_status = {"status": "healthy", "api": "operational"}
+
+    # Check MongoDB
     if not db_manager or not db_manager.client:
-        return {"status": "starting", "database": "connecting"}
-    try:
-        # Test the connection with a simple ping
-        db_manager.client.admin.command("ping")
-        return {"status": "healthy", "database": "connected", "api": "operational"}
-    except Exception as e:
-        return {"status": "degraded", "database": "connection_error", "error": str(e)}
+        health_status["mongodb"] = "connecting"
+        health_status["status"] = "starting"
+    else:
+        try:
+            db_manager.client.admin.command("ping")
+            health_status["mongodb"] = "connected"
+        except Exception as e:
+            health_status["mongodb"] = "connection_error"
+            health_status["status"] = "degraded"
+            health_status["mongodb_error"] = str(e)
+
+    # Check SQL Database
+    if not sql_connector:
+        health_status["sql"] = "not_configured"
+    else:
+        try:
+            if sql_connector.test_connection():
+                health_status["sql"] = "connected"
+            else:
+                health_status["sql"] = "connection_failed"
+                health_status["status"] = "degraded"
+        except Exception as e:
+            health_status["sql"] = "connection_error"
+            health_status["status"] = "degraded"
+            health_status["sql_error"] = str(e)
+
+    return health_status
 
 
-@app.get("/items", response_model=List[Dict])
+@app.get("/v1/items", response_model=List[Dict])
 async def get_all_items(current_user_id: str = Depends(get_current_user)):
     """Get all clothing items"""
     logger.bind(user_id=current_user_id).info("Fetching all items")
@@ -224,7 +279,7 @@ async def get_all_items(current_user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/items/{item_id}")
+@app.get("/v1/items/{item_id}")
 async def get_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Get a specific clothing item by ID"""
     try:
@@ -242,7 +297,7 @@ async def get_item(item_id: str, current_user_id: str = Depends(get_current_user
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/items")
+@app.post("/v1/items")
 async def create_item(
     item: ClothingItem, current_user_id: str = Depends(get_current_user)
 ):
@@ -274,7 +329,7 @@ async def create_item(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.put("/items/{item_id}")
+@app.put("/v1/items/{item_id}")
 async def update_item(
     item_id: str,
     updates: UpdateClothingItem,
@@ -310,7 +365,7 @@ async def update_item(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/items/{item_id}")
+@app.delete("/v1/items/{item_id}")
 async def delete_item(item_id: str, current_user_id: str = Depends(get_current_user)):
     """Delete a clothing item"""
     try:
@@ -350,7 +405,7 @@ async def delete_item(item_id: str, current_user_id: str = Depends(get_current_u
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/items/category/{category}")
+@app.get("/v1/items/category/{category}")
 async def get_items_by_category(
     category: str, current_user_id: str = Depends(get_current_user)
 ):
@@ -370,7 +425,7 @@ async def get_items_by_category(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/categories")
+@app.get("/v1/categories")
 async def get_categories(current_user_id: str = Depends(get_current_user)):
     """Get all unique categories"""
     try:
@@ -384,7 +439,7 @@ async def get_categories(current_user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/search")
+@app.get("/v1/search")
 async def search_items(query: str, current_user_id: str = Depends(get_current_user)):
     """Search for items by name, category, or filename"""
     try:
@@ -402,7 +457,7 @@ async def search_items(query: str, current_user_id: str = Depends(get_current_us
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/stats")
+@app.get("/v1/stats")
 async def get_stats(current_user_id: str = Depends(get_current_user)):
     """Get wardrobe statistics"""
     try:
@@ -417,7 +472,7 @@ async def get_stats(current_user_id: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/items/{item_id}/upload-image")
+@app.post("/v1/items/{item_id}/upload-image")
 async def upload_image(
     item_id: str,
     file: UploadFile = File(...),
@@ -481,7 +536,7 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/extract-colors", response_model=ColorExtractionResponse)
+@app.post("/v1/extract-colors", response_model=ColorExtractionResponse)
 async def extract_colors(
     file: UploadFile = File(...),
     current_user_id: str = Depends(get_current_user),
@@ -525,7 +580,7 @@ async def extract_colors(
         )
 
 
-@app.post("/api/auth/google", response_model=AuthResponse)
+@app.post("/v1/auth/google", response_model=AuthResponse)
 async def google_auth(auth_request: GoogleAuthRequest):
     try:
         db_manager = get_db_manager()
@@ -577,7 +632,129 @@ async def google_auth(auth_request: GoogleAuthRequest):
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
 
 
-@app.get("/images/{image_path:path}")
+def get_sql_dep() -> AsyncSQLConnector:
+    # You can pass a connection string OR leave None to resolve from env/Cloud SQL.
+    return get_async_sql_connector(SQL_CONNECTION_STRING)
+
+
+@app.post("/v2/auth/google", response_model=AuthResponse)
+async def google_auth_v2(
+    auth_request: GoogleAuthRequest,
+    sql=Depends(get_sql_dep),
+) -> AuthResponse:
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            auth_request.token, requests.Request(), GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    iss = idinfo.get("iss")
+    if iss not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(status_code=401, detail="Invalid token issuer")
+
+    if not idinfo.get("email"):
+        raise HTTPException(status_code=401, detail="Email missing in token")
+
+    if not idinfo.get("email_verified", False):
+        raise HTTPException(status_code=401, detail="Email not verified")
+
+    auth_provider_id = idinfo["sub"]
+    email = idinfo["email"]
+    name = idinfo.get("name")
+    picture_url = idinfo.get("picture")
+
+    # 2) Upsert + fetch user in a single transaction
+    try:
+        async with sql.transaction() as session:
+            upsert_query = """
+                INSERT INTO account (auth_provider_id, auth_provider, email, name, picture_url, created_at, last_login)
+                VALUES (:auth_provider_id, :auth_provider, :email, :name, :picture_url, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON DUPLICATE KEY UPDATE
+                    email = VALUES(email),
+                    name = VALUES(name),
+                    picture_url = VALUES(picture_url),
+                    last_login = CURRENT_TIMESTAMP
+            """
+            await session.execute(
+                text(upsert_query),
+                {
+                    "auth_provider_id": auth_provider_id,
+                    "email": email,
+                    "name": name,
+                    "picture_url": picture_url,
+                    "auth_provider": "google",
+                },
+            )
+
+            select_query = """
+                SELECT id, auth_provider_id, email, name, picture_url
+                FROM account
+                WHERE auth_provider_id = :auth_provider_id
+                LIMIT 1
+            """
+            result = await session.execute(
+                text(select_query), {"auth_provider_id": auth_provider_id}
+            )
+            row = result.mappings().first()
+            if not row:
+                raise HTTPException(status_code=500, detail="User fetch failed")
+            user = dict(row)
+            logger.info(
+                "User login/upsert successful for google_id={}", auth_provider_id
+            )
+
+            jwt_token = jwt.encode(
+                {
+                    "auth_provider_id": str(user["auth_provider_id"]),
+                    "email": user["email"],
+                    "name": user["name"],
+                    "picture": user.get("picture_url"),
+                    "exp": datetime.utcnow() + timedelta(days=7),
+                },
+                GOOGLE_CLIENT_SECRET,
+                algorithm="HS256",
+            )
+
+            # 4) Return user info
+            return AuthResponse(
+                token=jwt_token,
+                user=UserResponse(
+                    id=str(user["auth_provider_id"]),
+                    email=user["email"],
+                    name=user.get("name"),
+                    picture=user.get("picture_url"),
+                ),
+            )
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Authentication failed")
+        # Do not leak raw errors to clients
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+
+@app.get("/account/{google_id}")
+async def get_account(
+    google_id: str,
+    sql: AsyncSQLConnector = Depends(lambda: get_async_sql_connector(None)),
+):
+    row = await sql.fetch_one(
+        """
+        SELECT id, google_id, email, name, picture
+        FROM account
+        WHERE google_id = :google_id
+        LIMIT 1
+        """,
+        {"google_id": google_id},
+    )
+    if not row:
+        raise HTTPException(404, "Not found")
+    return row
+
+
+@app.get("/v1/images/{image_path:path}")
 async def get_image(image_path: str):
     """Serve images from Google Cloud Storage"""
     try:
@@ -604,7 +781,7 @@ async def get_image(image_path: str):
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
 
 
-@app.get("/proxy/avatar")
+@app.get("/v1/proxy/avatar")
 async def proxy_avatar(url: str):
     """Proxy external avatar images (e.g., Google) to avoid third-party rate limits.
 
@@ -657,5 +834,6 @@ async def startup_event():
 
 
 if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run(app, host="0.0.0.0", port=8000)

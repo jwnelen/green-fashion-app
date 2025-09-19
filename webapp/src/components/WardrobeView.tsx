@@ -8,6 +8,7 @@ import { getCategoryName, getWardrobeCategoryName } from '../lib/constants';
 import { Trash2, Edit2, Search, Tag } from 'lucide-react';
 import { EditCategoryModal } from './EditCategoryModal';
 import { useAuth } from '../hooks/useAuth';
+import {API_VERSION} from "../lib/api"
 
 interface WardrobeViewProps {
   onEditItem?: (item: ClothingItem) => void;
@@ -185,7 +186,7 @@ export function WardrobeView({ onEditItem }: WardrobeViewProps) {
                   <div className="aspect-square bg-gray-100 rounded-md mb-3 flex items-center justify-center">
                     {item.path ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/images/${item.path}`}
+                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/${API_VERSION}/images/${item.path}`}
                         alt={item.custom_name}
                         className="w-full h-full object-cover rounded-md"
                         onError={(e) => {

@@ -79,6 +79,62 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
         }
       }
 
+      # MySQL connection string from Secret Manager
+      dynamic "env" {
+        for_each = var.mysql_connection_secret_id != null ? [1] : []
+        content {
+          name = "MYSQL_CONNECTION_STRING"
+          value_source {
+            secret_key_ref {
+              secret  = var.mysql_connection_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      # Cloud SQL volume mount
+      dynamic "volume_mounts" {
+        for_each = var.mysql_instance_connection_name != null ? [1] : []
+        content {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      # Cloud SQL environment variables for Unix socket connection
+      dynamic "env" {
+        for_each = var.mysql_instance_connection_name != null ? [1] : []
+        content {
+          name  = "INSTANCE_CONNECTION_NAME"
+          value = var.mysql_instance_connection_name
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.mysql_db_user != null ? [1] : []
+        content {
+          name  = "DB_USER"
+          value = var.mysql_db_user
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.mysql_db_password != null ? [1] : []
+        content {
+          name  = "DB_PASS"
+          value = var.mysql_db_password
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.mysql_db_name != null ? [1] : []
+        content {
+          name  = "DB_NAME"
+          value = var.mysql_db_name
+        }
+      }
+
       # Ports
       ports {
         container_port = 8000
@@ -105,6 +161,17 @@ resource "google_cloud_run_v2_service" "green_fashion_api" {
         timeout_seconds       = 10
         period_seconds        = 30
         failure_threshold     = 3
+      }
+    }
+
+    # Cloud SQL volume
+    dynamic "volumes" {
+      for_each = var.mysql_instance_connection_name != null ? [1] : []
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [var.mysql_instance_connection_name]
+        }
       }
     }
 

@@ -102,7 +102,7 @@ class MongoDBManager:
             item_data["created_at"] = datetime.now()
             item_data["updated_at"] = datetime.now()
             if "user_id" in item_data:
-                item_data["user_id"] = ObjectId(item_data["user_id"])
+                item_data["user_id"] = item_data["user_id"]
             result = self.clothing_items_db.insert_one(item_data)
             return str(result.inserted_id)
         except Exception as e:
@@ -117,7 +117,7 @@ class MongoDBManager:
             List[Dict]: List of all clothing items
         """
         try:
-            items = list(self.clothing_items_db.find({"user_id": ObjectId(user_id)}))
+            items = list(self.clothing_items_db.find({"user_id": user_id}))
             logger.debug("Retrieved {count} items", count=len(items))
             for item in items:
                 item["_id"] = str(item["_id"])
@@ -142,7 +142,7 @@ class MongoDBManager:
         try:
             query = {"_id": ObjectId(item_id)}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             item = self.clothing_items_db.find_one(query)
             if item:
                 item["_id"] = str(item["_id"])
@@ -169,7 +169,7 @@ class MongoDBManager:
             updates["updated_at"] = datetime.now()
             query = {"_id": ObjectId(item_id)}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             result = self.clothing_items_db.update_one(query, {"$set": updates})
             return result.modified_count > 0
         except Exception as e:
@@ -190,7 +190,7 @@ class MongoDBManager:
         try:
             query = {"_id": ObjectId(item_id)}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             result = self.clothing_items_db.delete_one(query)
             return result.deleted_count > 0
         except Exception as e:
@@ -219,7 +219,7 @@ class MongoDBManager:
                 ]
             }
             if user_id:
-                search_conditions["user_id"] = ObjectId(user_id)
+                search_conditions["user_id"] = user_id
 
             items = list(self.clothing_items_db.find(search_conditions))
             for item in items:
@@ -245,7 +245,7 @@ class MongoDBManager:
         try:
             query = {"category": category}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             items = list(self.clothing_items_db.find(query))
             for item in items:
                 item["_id"] = str(item["_id"])
@@ -269,7 +269,7 @@ class MongoDBManager:
         try:
             query = {}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             return self.clothing_items_db.distinct("category", query)
         except Exception as e:
             logger.exception("Error fetching categories: {error}", error=str(e))
@@ -288,7 +288,7 @@ class MongoDBManager:
         try:
             query = {}
             if user_id:
-                query["user_id"] = ObjectId(user_id)
+                query["user_id"] = user_id
             return self.clothing_items_db.count_documents(query)
         except Exception as e:
             logger.exception("Error getting item count: {error}", error=str(e))
@@ -307,7 +307,7 @@ class MongoDBManager:
         try:
             pipeline = []
             if user_id:
-                pipeline.append({"$match": {"user_id": ObjectId(user_id)}})
+                pipeline.append({"$match": {"user_id": user_id}})
             pipeline.extend(
                 [
                     {"$group": {"_id": "$category", "count": {"$sum": 1}}},

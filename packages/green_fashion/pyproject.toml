@@ -16,6 +16,10 @@ dependencies = [
     "rembg>=2.0.67",
     "onnxruntime>=1.22.1",
     "loguru>=0.7.3",
+    "sqlalchemy>=2.0.0",
+    "pymysql>=1.1.0",
+    "aiomysql>=0.2.0",
+    "greenlet>=3.2.4",
 ]
 
 [build-system]
