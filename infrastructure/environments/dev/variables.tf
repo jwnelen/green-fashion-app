@@ -115,7 +115,7 @@ variable "bucket_lifecycle_age_days" {
 variable "mysql_enabled" {
   description = "Enable MySQL Cloud SQL database"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "mysql_db_tier" {
@@ -153,7 +153,7 @@ variable "mysql_deletion_protection" {
 variable "composer_enabled" {
   description = "Enable Cloud Composer environment"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "composer_airflow_image_version" {
